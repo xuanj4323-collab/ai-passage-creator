@@ -1,6 +1,9 @@
 spring:
   application:
     name: ai-passage-creator
+  # 仅用于本地开发，生产须用启动参数覆盖
+  profiles:
+    active: dev
   # MySQL 数据库配置
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver

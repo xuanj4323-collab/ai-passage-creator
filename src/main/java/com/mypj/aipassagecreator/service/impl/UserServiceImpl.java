@@ -27,6 +27,8 @@ import static com.mypj.aipassagecreator.constant.UserConstant.USER_LOGIN_STATE;
 
 @Service
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
+    final List<String> ALLOWED_SORT_FIELDS = List.of("id", "userName", "userAccount", "userRole", "createTime", "updateTime");
+
     @Override
     public long userRegister(String userAccount, String userPassword, String checkPassword) {
         // 1. 校验参数 --保留基础校验，其余由DTO完成
@@ -146,6 +148,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         String userRole = userQueryRequest.getUserRole();
         String sortField = userQueryRequest.getSortField();
         String sortOrder = userQueryRequest.getSortOrder();
+        if (!ALLOWED_SORT_FIELDS.contains(sortField)) {
+            sortField = "updateTime";
+        }
+
         return QueryWrapper.create()
                 .eq("id", id) // where id = ${id}
                 .eq("userRole", userRole) // and userRole = ${userRole}
