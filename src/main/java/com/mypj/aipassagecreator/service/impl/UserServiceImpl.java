@@ -29,8 +29,13 @@ import static com.mypj.aipassagecreator.constant.UserConstant.USER_LOGIN_STATE;
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
     @Override
     public long userRegister(String userAccount, String userPassword, String checkPassword) {
-        // 1. 校验参数 -->已转移到DTO
-
+        // 1. 校验参数 --保留基础校验，其余由DTO完成
+        if (StrUtil.hasBlank(userAccount, userPassword, checkPassword)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
+        }
+        if (!userPassword.equals(checkPassword)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "两次输入的密码不一致");
+        }
         // 2. 查询用户是否已存在
         QueryWrapper queryWrapper = new QueryWrapper();
         queryWrapper.eq("userAccount", userAccount);
@@ -62,8 +67,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Override
     public LoginUserVO userLogin(String userAccount, String userPassword, HttpServletRequest request) {
-        // 1. 校验参数 -->已转移到DTO
-
+        // 1. 校验参数
+        if (StrUtil.hasBlank(userAccount, userPassword)) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "参数为空");
+        }
         // 2. 加密
         String encryptPassword = getEncryptPassword(userPassword);
         // 3. 查询用户是否存在
