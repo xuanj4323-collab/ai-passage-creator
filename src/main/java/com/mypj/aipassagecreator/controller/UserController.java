@@ -13,6 +13,7 @@ import com.mypj.aipassagecreator.exception.ThrowUtils;
 import com.mypj.aipassagecreator.model.dto.user.*;
 import com.mypj.aipassagecreator.model.vo.LoginUserVO;
 import com.mypj.aipassagecreator.model.vo.UserVO;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -31,6 +32,7 @@ import java.util.List;
  * 用户控制层
  *
  */
+@Tag(name = "用户控制层")
 @RestController
 @RequestMapping("/user")
 public class UserController {

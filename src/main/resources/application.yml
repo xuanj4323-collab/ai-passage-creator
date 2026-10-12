@@ -22,6 +22,9 @@ spring:
       port: 6379
       database: 0
       password:
+  ai:
+    deepseek:
+      api-key: ${DS_API_KEY}
 server:
   port: 8567
   servlet:
@@ -47,5 +50,11 @@ mybatis-flex:
   configuration:
     map-underscore-to-camel-case: false
 
-
+unsplash:
+  access-key: ${Unsplash_Access-Key}
+  api-url: https://api.unsplash.com/search/photos
+  default-per-page: 1
+  default-orientation: landscape
+  connect-timeout: 5000
+  read-timeout: 10000
 
