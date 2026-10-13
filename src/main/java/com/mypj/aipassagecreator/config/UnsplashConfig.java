@@ -20,25 +20,25 @@ public class UnsplashConfig {
     /**
      * API 基础地址
      */
-    private String apiUrl = "https://api.unsplash.com/search/photos";
+    private String apiUrl;
 
     /**
      * 默认每页返回数量（Unsplash 最大 30）
      */
-    private Integer defaultPerPage = 1;
+    private Integer defaultPerPage;
 
     /**
      * 默认图片方向：landscape / portrait / squarish
      */
-    private String defaultOrientation = "landscape";
+    private String defaultOrientation;
 
     /**
      * 连接超时（毫秒）
      */
-    private Integer connectTimeout = 5000;
+    private Integer connectTimeout;
 
     /**
      * 读取超时（毫秒）
      */
-    private Integer readTimeout = 10000;
+    private Integer readTimeout;
 }

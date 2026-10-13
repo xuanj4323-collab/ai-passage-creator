@@ -1,4 +1,39 @@
 declare namespace API {
+  type ArticleCreateRequest = {
+    topic?: string;
+  };
+
+  type ArticleQueryRequest = {
+    pageNum?: number;
+    pageSize?: number;
+    sortField?: string;
+    sortOrder?: string;
+    userId?: number;
+    status?: string;
+  };
+
+  type ArticleVO = {
+    id?: number;
+    taskId?: string;
+    userId?: number;
+    topic?: string;
+    mainTitle?: string;
+    subTitle?: string;
+    outline?: OutlineItem[];
+    content?: string;
+    images?: ImageItem[];
+    status?: string;
+    errorMessage?: string;
+    createTime?: string;
+    completedTime?: string;
+  };
+
+  type BaseResponseArticleVO = {
+    code?: number;
+    data?: ArticleVO;
+    message?: string;
+  };
+
   type BaseResponseBoolean = {
     code?: number;
     data?: boolean;
@@ -14,6 +49,12 @@ declare namespace API {
   type BaseResponseLong = {
     code?: number;
     data?: number;
+    message?: string;
+  };
+
+  type BaseResponsePageArticleVO = {
+    code?: number;
+    data?: PageArticleVO;
     message?: string;
   };
 
@@ -45,12 +86,28 @@ declare namespace API {
     id?: number;
   };
 
+  type getArticleParams = {
+    taskId: string;
+  };
+
+  type getProgressParams = {
+    taskId: string;
+  };
+
   type getUserByIdParams = {
     id: number;
   };
 
   type getUserVOByIdParams = {
     id: number;
+  };
+
+  type ImageItem = {
+    position?: number;
+    url?: string;
+    method?: string;
+    keywords?: string;
+    description?: string;
   };
 
   type LoginUserVO = {
@@ -64,6 +121,21 @@ declare namespace API {
     updateTime?: string;
   };
 
+  type OutlineItem = {
+    section?: number;
+    title?: string;
+    points?: string[];
+  };
+
+  type PageArticleVO = {
+    records?: ArticleVO[];
+    pageNumber?: number;
+    pageSize?: number;
+    totalPage?: number;
+    totalRow?: number;
+    optimizeCountQuery?: boolean;
+  };
+
   type PageUserVO = {
     records?: UserVO[];
     pageNumber?: number;
@@ -71,6 +143,10 @@ declare namespace API {
     totalPage?: number;
     totalRow?: number;
     optimizeCountQuery?: boolean;
+  };
+
+  type SseEmitter = {
+    timeout?: number;
   };
 
   type User = {
@@ -96,8 +172,8 @@ declare namespace API {
   };
 
   type UserLoginRequest = {
-    userAccount?: string;
-    userPassword?: string;
+    userAccount: string;
+    userPassword: string;
   };
 
   type UserQueryRequest = {
@@ -113,9 +189,9 @@ declare namespace API {
   };
 
   type UserRegisterRequest = {
-    userAccount?: string;
-    userPassword?: string;
-    checkPassword?: string;
+    userAccount: string;
+    userPassword: string;
+    checkPassword: string;
   };
 
   type UserUpdateRequest = {

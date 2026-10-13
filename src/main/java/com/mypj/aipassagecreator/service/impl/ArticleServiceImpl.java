@@ -110,7 +110,6 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
 
         // 构建查询条件
         QueryWrapper queryWrapper = QueryWrapper.create()
-                .eq("isDelete", 0)
                 .orderBy("createTime", false);
 
         // 非管理员只能查看自己的文章

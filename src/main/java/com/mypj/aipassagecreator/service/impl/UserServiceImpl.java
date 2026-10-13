@@ -148,7 +148,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         String userRole = userQueryRequest.getUserRole();
         String sortField = userQueryRequest.getSortField();
         String sortOrder = userQueryRequest.getSortOrder();
-        if (!ALLOWED_SORT_FIELDS.contains(sortField)) {
+        if (StrUtil.isBlank(sortField) || !ALLOWED_SORT_FIELDS.contains(sortField)) {
             sortField = "updateTime";
         }
 

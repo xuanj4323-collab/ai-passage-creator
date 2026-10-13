@@ -12,25 +12,6 @@ public interface ArticleConstant {
      */
     long SSE_RECONNECT_TIME_MS = 3000L;
 
-    // region Unsplash 相关常量
-
-    /**
-     * UNSPLASH API 地址
-     */
-    String UNSPLASH_API_URL = "https://api.unsplash.com/search/photos";
-
-    /**
-     * Unsplash 每页返回数量
-     */
-    int UNSPLASH_PER_PAGE = 1;
-
-    /**
-     * Unsplash 图片方向：横向
-     */
-    String UNSPLASH_ORIENTATION_LANDSCAPE = "landscape";
-
-    // endregion
-
     // region Picsum 相关常量
 
     /**

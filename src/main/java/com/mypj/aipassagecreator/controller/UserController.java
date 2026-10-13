@@ -32,7 +32,7 @@ import java.util.List;
  * 用户控制层
  *
  */
-@Tag(name = "用户控制层")
+@Tag(name = "UserController", description = "用户控制层")
 @RestController
 @RequestMapping("/user")
 public class UserController {
