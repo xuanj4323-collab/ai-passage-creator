@@ -1,3 +1,5 @@
+import { marked } from 'marked'
+
 /**
  * Markdown 转 HTML
  */

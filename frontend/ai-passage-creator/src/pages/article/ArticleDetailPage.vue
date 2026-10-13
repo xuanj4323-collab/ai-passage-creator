@@ -152,6 +152,7 @@ import {
   PictureOutlined,
 } from '@ant-design/icons-vue'
 import { getArticle } from '@/api/articleController'
+import { markdownToHtml } from '@/utils/markdown'
 import {
   buildArticleMarkdown,
   copyText,
@@ -159,7 +160,6 @@ import {
   formatDateTime,
   getStatusColor,
   getStatusText,
-  renderMarkdown,
 } from './articleHelpers'
 
 const route = useRoute()
@@ -179,8 +179,8 @@ const exporting = ref(false)
 const article = ref<ArticleDetail | null>(null)
 
 /** 正文 HTML（computed 缓存，避免每次重渲染都重新解析 Markdown） */
-const contentHtml = computed(() => renderMarkdown(article.value?.content ?? ''))
-const fullContentHtml = computed(() => renderMarkdown(article.value?.fullContent ?? ''))
+const contentHtml = computed(() => markdownToHtml(article.value?.content ?? ''))
+const fullContentHtml = computed(() => markdownToHtml(article.value?.fullContent ?? ''))
 
 /** 是否已有可展示的内容 */
 const hasContent = computed(() =>

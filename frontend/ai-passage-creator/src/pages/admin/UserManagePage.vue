@@ -132,7 +132,9 @@ const doSearch = () => {
 }
 
 // 删除数据
-const doDelete = async (id: string) => {
+// id 来自表格的 record.id；UserVO.id 与 DeleteRequest.id 都是雪花 ID，
+// 后端已统一按字符串序列化（见 @JsonSerialize + @Schema 注解），因此这里按 string 传递
+const doDelete = async (id?: string) => {
   if (!id) {
     return
   }

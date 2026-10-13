@@ -8,14 +8,14 @@ declare namespace API {
     pageSize?: number;
     sortField?: string;
     sortOrder?: string;
-    userId?: number;
+    userId?: string;
     status?: string;
   };
 
   type ArticleVO = {
-    id?: number;
+    id?: string;
     taskId?: string;
-    userId?: number;
+    userId?: string;
     topic?: string;
     mainTitle?: string;
     subTitle?: string;
@@ -83,7 +83,7 @@ declare namespace API {
   };
 
   type DeleteRequest = {
-    id?: number;
+    id?: string;
   };
 
   type getArticleParams = {
@@ -111,7 +111,7 @@ declare namespace API {
   };
 
   type LoginUserVO = {
-    id?: number;
+    id?: string;
     userAccount?: string;
     userName?: string;
     userAvatar?: string;
@@ -181,7 +181,7 @@ declare namespace API {
     pageSize?: number;
     sortField?: string;
     sortOrder?: string;
-    id?: number;
+    id?: string;
     userName?: string;
     userAccount?: string;
     userProfile?: string;
@@ -195,7 +195,7 @@ declare namespace API {
   };
 
   type UserUpdateRequest = {
-    id?: number;
+    id?: string;
     userName?: string;
     userAvatar?: string;
     userProfile?: string;
@@ -203,7 +203,7 @@ declare namespace API {
   };
 
   type UserVO = {
-    id?: number;
+    id?: string;
     userAccount?: string;
     userName?: string;
     userAvatar?: string;

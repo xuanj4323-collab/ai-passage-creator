@@ -1,8 +1,11 @@
 package com.mypj.aipassagecreator.model.vo;
 
+import com.fasterxml.jackson.databind.annotation.JsonSerialize;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.mypj.aipassagecreator.model.entity.Article;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import org.springframework.beans.BeanUtils;
 
@@ -20,8 +23,13 @@ public class ArticleVO implements Serializable {
     private static final Gson GSON = new Gson();
 
     /**
-     * id
+     * id（雪花 ID 为 19 位，超出 JS 安全整数范围，序列化为字符串避免前端丢精度）
+     *
+     * 两个注解缺一不可：@JsonSerialize 决定运行时输出字符串，@Schema 让文档类型同步；
+     * springdoc 不识别 @JsonSerialize，少了 @Schema 会生成 number 的 typings。
      */
+    @Schema(type = "string")
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long id;
 
     /**
@@ -30,8 +38,10 @@ public class ArticleVO implements Serializable {
     private String taskId;
 
     /**
-     * 用户ID
+     * 用户ID（同为雪花 ID，同样需要字符串化）
      */
+    @Schema(type = "string")
+    @JsonSerialize(using = ToStringSerializer.class)
     private Long userId;
 
     /**

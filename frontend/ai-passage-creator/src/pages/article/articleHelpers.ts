@@ -5,12 +5,11 @@
  * 1）后端状态枚举 → 中文文案 / 组件配色
  * 2）后端时间格式化（LocalDateTime 的两种序列化形态都要能兼容）
  * 3）文章 Markdown 组装与下载（创作页「导出」与详情页「导出」共用同一份规则）
- * 4）Markdown 渲染与剪贴板复制
+ * 4）剪贴板复制（带非安全上下文的降级方案）
  *
  * @author ai-passage-creator
  */
 import dayjs, { type Dayjs } from 'dayjs'
-import { marked } from 'marked'
 
 /** 后端文章状态枚举，对应 ArticleStatusEnum */
 export type ArticleStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'
@@ -70,16 +69,6 @@ export const formatDateTime = (
   const parsed = parseDateTime(value)
   return parsed ? parsed.format(template) : '-'
 }
-
-/**
- * Markdown 转 HTML
- *
- * 项目里本来就有一份 src/utils/markdown.ts，但它缺少 `import { marked } from 'marked'`，
- * 调用时会抛 ReferenceError（vue-tsc 报 TS2304 Cannot find name 'marked'）。
- * 该文件不在本次改动范围内，所以这里内置一份等价实现，保证页面能独立跑起来；
- * 等 utils/markdown.ts 补上 import 后，可随时切回共用版本。
- */
-export const renderMarkdown = (markdown: string): string => marked.parse(markdown) as string
 
 /** 导出 Markdown 所需的最小字段集合 */
 export interface MarkdownSource {

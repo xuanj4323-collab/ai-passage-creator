@@ -182,8 +182,31 @@
           <article class="completed-article">
             <h1 class="final-title">{{ article.mainTitle }}</h1>
             <p v-if="article.subTitle" class="final-subtitle">{{ article.subTitle }}</p>
+
             <!-- 优先展示图文合成结果，为空时降级为纯文本正文 -->
-            <div class="markdown-body" v-html="finalHtml"></div>
+            <div v-if="finalHtml" class="markdown-body" v-html="finalHtml"></div>
+            <a-empty v-else description="正文内容缺失，可查看详情页或重新创作" />
+
+            <!--
+              MERGE_COMPLETE 消息丢失时 fullContent 为空，正文里就没有插图，
+              这里单独把配图补上，避免生成的图片白白丢掉
+            -->
+            <section v-if="!article.fullContent && article.images?.length" class="completed-images">
+              <h2 class="section-label">
+                <PictureOutlined />
+                <span>文章配图</span>
+              </h2>
+              <div class="images-grid">
+                <img
+                  v-for="(image, index) in article.images"
+                  :key="image.position ?? index"
+                  :src="image.url"
+                  :alt="image.description || `配图${index + 1}`"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </div>
+            </section>
           </article>
         </section>
       </main>
@@ -281,9 +304,10 @@ import {
   WarningOutlined,
 } from '@ant-design/icons-vue'
 import { createArticle, getArticle } from '@/api/articleController'
-import { closeSSE } from '@/utils/sse'
+import { openSse, type SseConnection } from '@/utils/sse'
+import { markdownToHtml } from '@/utils/markdown'
 import request from '@/request'
-import { buildArticleMarkdown, copyText, downloadMarkdown, renderMarkdown } from './articleHelpers'
+import { buildArticleMarkdown, copyText, downloadMarkdown } from './articleHelpers'
 
 const router = useRouter()
 const route = useRoute()
@@ -379,8 +403,8 @@ const mainContentRef = ref<HTMLElement | null>(null)
 /** 是否自动跟随滚动（用户手动上滚时暂停，避免打断阅读） */
 const autoFollow = ref(true)
 
-// SSE 连接实例（无需响应式）
-let eventSource: EventSource | null = null
+// SSE 连接句柄（无需响应式）；连接生命周期由 utils/sse 的 openSse 统一管理
+let sseConnection: SseConnection | null = null
 let scrollFrame = 0
 
 // ==================== 大纲流式解析 ====================
@@ -454,10 +478,10 @@ const displayOutline = computed<API.OutlineItem[]>(() =>
  * 用 computed 而不是在模板里直接调用函数：流式期间 currentStep、光标等状态频繁变化会
  * 触发重渲染，computed 的缓存可避免重复解析同一段长文本。
  */
-const contentHtml = computed(() => renderMarkdown(article.value.content ?? ''))
+const contentHtml = computed(() => markdownToHtml(article.value.content ?? ''))
 
 /** 完成态 HTML：优先展示图文合成结果 */
-const finalHtml = computed(() => renderMarkdown(article.value.fullContent || article.value.content || ''))
+const finalHtml = computed(() => markdownToHtml(article.value.fullContent || article.value.content || ''))
 
 // ==================== 派生状态 ====================
 
@@ -512,50 +536,32 @@ const handleContentScroll = () => {
 /**
  * 建立进度 SSE 连接
  *
- * 这里没有直接复用 utils/sse.ts 的 connectSSE：它把地址写死为相对路径
- * `/api/article/progress/...`，而项目当前 vite.config.ts 未配置 proxy 转发，
- * 相对路径会打到 dev server 上导致 404。
- * 由于不能改动 src 下的其他文件，这里基于 request 实例的 baseURL 拼出绝对地址，
- * 并显式携带 Cookie（后端 CorsConfig 已 allowCredentials(true)）。
+ * utils/sse 的 openSse 不对路径做假设，所以这里基于 request 实例的 baseURL 拼出绝对地址：
+ * 项目没有配置 vite proxy，相对路径会打到 dev server 上导致 404。
+ *
+ * 分工：openSse 负责连接生命周期（消息解析、终态关闭、吞掉终态后的伪 error），
+ * 页面只负责业务决策——异常时提示什么、怎么收尾。
  */
-const createProgressSource = (id: string): EventSource => {
+const createProgressSource = (id: string) => {
   const baseURL = (request.defaults.baseURL as string) || '/api'
   const url = `${baseURL.replace(/\/+$/, '')}/article/progress/${encodeURIComponent(id)}`
-  const source = new EventSource(url, { withCredentials: true })
 
-  source.onmessage = (event) => {
-    let payload: ProgressMessage
-    try {
-      payload = JSON.parse(event.data)
-    } catch (error) {
-      console.error('SSE 消息解析失败:', error)
-      return
-    }
-
-    handleSSEMessage(payload)
-
-    // 终态消息：由前端主动关闭连接，避免浏览器无意义地重连
-    if (payload.type === 'ALL_COMPLETE' || payload.type === 'ERROR') {
-      closeSSE(source)
-      eventSource = null
-    }
-  }
-
-  source.onerror = (event) => {
-    // 收到 ALL_COMPLETE 后服务端会 complete 连接，浏览器可能补发一次 error，属正常现象
-    if (isCompleted.value || !isCreating.value) {
-      closeSSE(source)
-      eventSource = null
-      return
-    }
-    console.error('SSE 连接错误:', event)
-    closeSSE(source)
-    eventSource = null
-    isCreating.value = false
-    message.error('创作进度连接中断，可刷新页面查看结果')
-  }
-
-  return source
+  sseConnection = openSse<ProgressMessage>({
+    url,
+    onMessage: handleSSEMessage,
+    onError: () => {
+      // 能走到这里说明不是终态后的正常余波（那种已被 openSse 吞掉），而是真的断了。
+      // 只有在创作中才提示，避免用户已经离开这一步还被弹窗打扰。
+      if (!isCreating.value) {
+        return
+      }
+      isCreating.value = false
+      message.error('创作进度连接中断，可刷新页面查看结果')
+    },
+    onClose: () => {
+      sseConnection = null
+    },
+  })
 }
 
 /** 处理 SSE 消息 */
@@ -658,18 +664,34 @@ const handleSSEMessage = (msg: ProgressMessage) => {
 /**
  * 兜底补齐最终内容
  *
- * 后端 SseEmitterManager 在 emitter 不存在时会直接丢弃消息，
- * 若建连时机稍晚就可能漏掉流式分片，这里在完成时查一次详情补齐。
+ * 背景：后端 SseEmitterManager 在 emitter 不存在时会直接丢弃消息，建连时机稍晚就可能漏掉
+ * 流式分片；而 ALL_COMPLETE 是在 saveArticleContent 之后才推送的，此时查详情能拿到权威数据。
+ *
+ * 注意：详情接口（ArticleVO）并不返回 fullContent，所以这里**补不到**图文合成结果，
+ * 它能补的只有 content / outline / images / 标题。因此判断"是否已有可展示内容"必须和
+ * 完成态的渲染口径保持一致——渲染用的是 `fullContent || content`，两者任一有值都不必再请求。
  */
 const ensureFinalArticle = async () => {
-  if (article.value.content || !taskId.value) {
+  if (article.value.content || article.value.fullContent || !taskId.value) {
     return
   }
+
   try {
     const res = await getArticle({ taskId: taskId.value })
     const detail = res.data?.data
-    if (detail) {
-      article.value = { ...article.value, ...detail }
+    if (!detail) {
+      return
+    }
+
+    // 逐字段合并，只接受后端确实返回了值的字段：
+    // 直接展开 detail 会让 null 覆盖掉流式期间已累积的正文
+    article.value = {
+      ...article.value,
+      mainTitle: detail.mainTitle || article.value.mainTitle,
+      subTitle: detail.subTitle || article.value.subTitle,
+      content: detail.content || article.value.content,
+      outline: detail.outline?.length ? detail.outline : article.value.outline,
+      images: detail.images?.length ? detail.images : article.value.images,
     }
   } catch (error) {
     console.error('补齐文章详情失败:', error)
@@ -705,8 +727,8 @@ const startCreate = async () => {
   }
 
   // 清理上一次可能残留的连接
-  closeSSE(eventSource)
-  eventSource = null
+  sseConnection?.close()
+  sseConnection = null
 
   resetStreamingState()
   isCreating.value = true
@@ -724,7 +746,7 @@ const startCreate = async () => {
     taskId.value = newTaskId
 
     // 拿到 taskId 后立即建连：后端不缓存历史消息，越早连接越不容易丢首条进度
-    eventSource = createProgressSource(newTaskId)
+    createProgressSource(newTaskId)
   } catch (error: any) {
     message.error(error?.message || '创建任务失败')
     isCreating.value = false
@@ -784,8 +806,8 @@ const viewArticle = () => {
 
 /** 重新创作 */
 const resetCreate = () => {
-  closeSSE(eventSource)
-  eventSource = null
+  sseConnection?.close()
+  sseConnection = null
   topic.value = ''
   taskId.value = ''
   currentStep.value = 0
@@ -815,8 +837,8 @@ onBeforeUnmount(() => {
     cancelAnimationFrame(scrollFrame)
     scrollFrame = 0
   }
-  closeSSE(eventSource)
-  eventSource = null
+  sseConnection?.close()
+  sseConnection = null
 })
 </script>
 
@@ -1252,6 +1274,30 @@ $primary-dark: #764ba2;
     margin: 0 0 8px;
     font-size: 16px;
     color: #8c8c8c;
+  }
+}
+
+/* 完成态：没有图文合成结果时单独展示的配图 */
+.completed-images {
+  margin-top: 24px;
+
+  .section-label {
+    margin-bottom: 12px;
+  }
+
+  .images-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 12px;
+
+    img {
+      display: block;
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+      background: #f0f0f0;
+      border-radius: 8px;
+    }
   }
 }
 
