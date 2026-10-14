@@ -100,6 +100,7 @@ public interface PromptConstant {
               {
                 "position": 1,
                 "type": "cover",
+                "sectionTitle": "AI technology office modern",
                 "keywords": "AI technology office modern"
               }
             ]

@@ -25,6 +25,11 @@ spring:
   ai:
     deepseek:
       api-key: ${DS_API_KEY}
+  mvc:
+    async:
+      request-timeout: 1800000   # 30 分钟，与 SseEmitter 的超时保持一致
+
+
 server:
   port: 8567
   servlet:

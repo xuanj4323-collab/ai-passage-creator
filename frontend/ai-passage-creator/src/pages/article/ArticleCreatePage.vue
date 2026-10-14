@@ -670,9 +670,10 @@ const handleSSEMessage = (msg: ProgressMessage) => {
  * 注意：详情接口（ArticleVO）并不返回 fullContent，所以这里**补不到**图文合成结果，
  * 它能补的只有 content / outline / images / 标题。因此判断"是否已有可展示内容"必须和
  * 完成态的渲染口径保持一致——渲染用的是 `fullContent || content`，两者任一有值都不必再请求。
+ * 新增mainTitle验证，保证标题不会空白
  */
 const ensureFinalArticle = async () => {
-  if (article.value.content || article.value.fullContent || !taskId.value) {
+  if (article.value.content || article.value.fullContent || article.value.mainTitle || !taskId.value) {
     return
   }
 
