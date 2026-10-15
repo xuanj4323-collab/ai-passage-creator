@@ -63,3 +63,38 @@ unsplash:
   connect-timeout: 5000
   read-timeout: 10000
 
+mermaid:
+  cli-command: mmdc.cmd  # CLI 命令（Linux/Mac 下为 mmdc）
+  background-color: transparent  # 背景颜色
+  output-format: svg  # 输出格式（svg/png/pdf）
+  width: 1200  # 图片宽度（像素）
+  timeout: 30000  # 命令执行超时时间（毫秒）
+
+# Iconify 图标库配置
+iconify:
+  api-url: https://api.iconify.design
+  search-limit: 10
+  default-height: 64
+  default-color: ""  # 留空使用 currentColor，或设置如 "#000000"
+
+# 表情包图片检索配置
+emoji-pack:
+  search-url: https://cn.bing.com/images/async
+  suffix: 表情包
+  timeout: 10000  # 请求超时（毫秒）
+
+# SVG 概念示意图生成配置
+svg-diagram:
+  default-width: 800
+  default-height: 600
+  folder: svg-diagrams  # OSS 存储文件夹
+
+# 阿里云 OSS 配置（可选）
+aliyun:
+  oss:
+    access-key-id: ${OSS_ACCESS_KEY_ID}
+    access-key-secret: ${OSS_ACCESS_KEY_SECRET}
+    region: cn-beijing
+    bucket: ai-passage-creator-mypj
+    # 对外访问域名（不含协议）；不配置时按 oss-{region}.aliyuncs.com 兜底推导
+    endpoint: oss-cn-beijing.aliyuncs.com

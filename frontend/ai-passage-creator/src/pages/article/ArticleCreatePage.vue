@@ -59,6 +59,41 @@
                 @press-enter="handlePressEnter"
               />
 
+              <!-- 文章风格选择 -->
+              <div class="style-section">
+                <div class="section-header">
+                  <span class="section-title">文章风格</span>
+                </div>
+                <a-radio-group v-model:value="selectedStyle" class="style-group">
+                  <a-radio value="">默认</a-radio>
+                  <a-radio
+                    v-for="style in ARTICLE_STYLE_OPTIONS"
+                    :key="style.value"
+                    :value="style.value"
+                  >
+                    {{ style.label }}
+                  </a-radio>
+                </a-radio-group>
+              </div>
+
+              <!-- 配图方式选择 -->
+              <div class="image-methods-section">
+                <div class="section-header">
+                  <span class="section-title">配图方式</span>
+                  <span class="section-tip">（不选择表示支持所有方式）</span>
+                </div>
+                <a-checkbox-group v-model:value="selectedImageMethods" class="methods-group">
+                  <a-checkbox
+                    v-for="method in IMAGE_METHOD_OPTIONS"
+                    :key="method.value"
+                    :value="method.value"
+                    :title="method.description"
+                  >
+                    {{ method.label }}
+                  </a-checkbox>
+                </a-checkbox-group>
+              </div>
+
               <a-button
                 type="primary"
                 size="large"
@@ -197,14 +232,25 @@
                 <span>文章配图</span>
               </h2>
               <div class="images-grid">
-                <img
+                <figure
                   v-for="(image, index) in article.images"
                   :key="image.position ?? index"
-                  :src="image.url"
-                  :alt="image.description || `配图${index + 1}`"
-                  loading="lazy"
-                  decoding="async"
-                />
+                  class="image-item"
+                >
+                  <img
+                    :src="image.url"
+                    :alt="image.description || `配图${index + 1}`"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <figcaption class="image-info">
+                    <!-- 展示每张图的来源（Unsplash 图库 / Mermaid 图表 / 表情包 …） -->
+                    <a-tag v-if="image.method" color="blue">
+                      {{ getImageMethodText(image.method) }}
+                    </a-tag>
+                    <span class="keywords">{{ image.keywords || image.description || '-' }}</span>
+                  </figcaption>
+                </figure>
               </div>
             </section>
           </article>
@@ -307,7 +353,14 @@ import { createArticle, getArticle } from '@/api/articleController'
 import { openSse, type SseConnection } from '@/utils/sse'
 import { markdownToHtml } from '@/utils/markdown'
 import request from '@/request'
-import { buildArticleMarkdown, copyText, downloadMarkdown } from './articleHelpers'
+import {
+  ARTICLE_STYLE_OPTIONS,
+  buildArticleMarkdown,
+  copyText,
+  downloadMarkdown,
+  getImageMethodText,
+  IMAGE_METHOD_OPTIONS,
+} from './articleHelpers'
 
 const router = useRouter()
 const route = useRoute()
@@ -368,6 +421,10 @@ type ArticleDraft = API.ArticleVO & { fullContent?: string }
 // ==================== 页面状态 ====================
 
 const topic = ref('')
+/** 创作参数：文章风格，空字符串表示使用默认风格 */
+const selectedStyle = ref('')
+/** 创作参数：允许的配图方式，空数组表示支持全部方式 */
+const selectedImageMethods = ref<string[]>([])
 const isCreating = ref(false)
 const isCompleted = ref(false)
 const isStreaming = ref(false)
@@ -739,7 +796,13 @@ const startCreate = async () => {
 
   try {
     // 创建任务，返回 BaseResponse<String>，taskId 在 data.data 中
-    const res = await createArticle({ topic: trimmed })
+    // style / enabledImageMethods 为空时传 undefined，后端按「默认风格 / 支持全部方式」处理
+    const res = await createArticle({
+      topic: trimmed,
+      style: selectedStyle.value || undefined,
+      enabledImageMethods:
+        selectedImageMethods.value.length > 0 ? selectedImageMethods.value : undefined,
+    })
     const newTaskId = res.data?.data
     if (!newTaskId) {
       throw new Error(res.data?.message || '创建任务失败')
@@ -810,6 +873,9 @@ const resetCreate = () => {
   sseConnection?.close()
   sseConnection = null
   topic.value = ''
+  // 一并重置创作参数，避免下一篇沿用上一篇的风格与配图方式
+  selectedStyle.value = ''
+  selectedImageMethods.value = []
   taskId.value = ''
   currentStep.value = 0
   isCreating.value = false
@@ -1097,6 +1163,85 @@ $primary-dark: #764ba2;
   }
 }
 
+/* 创作参数：文章风格 / 配图方式 */
+.style-section,
+.image-methods-section {
+  padding: 16px;
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+  border-radius: 10px;
+
+  .section-header {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a1a1a;
+  }
+
+  .section-tip {
+    font-size: 12px;
+    color: #bfbfbf;
+  }
+}
+
+/* 风格单选：把选项做成可点的卡片 */
+.style-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+
+  :deep(.ant-radio-wrapper) {
+    margin: 0;
+    padding: 6px 14px;
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    transition: all 0.2s;
+
+    &:hover {
+      border-color: $primary;
+      background: rgba(102, 126, 234, 0.04);
+    }
+
+    &.ant-radio-wrapper-checked {
+      border-color: $primary;
+      background: rgba(102, 126, 234, 0.08);
+    }
+  }
+}
+
+/* 配图方式多选：同样的卡片式外观 */
+.methods-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+
+  :deep(.ant-checkbox-wrapper) {
+    margin: 0;
+    padding: 6px 14px;
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    transition: all 0.2s;
+
+    &:hover {
+      border-color: $primary;
+      background: rgba(102, 126, 234, 0.04);
+    }
+
+    &.ant-checkbox-wrapper-checked {
+      border-color: $primary;
+      background: rgba(102, 126, 234, 0.08);
+    }
+  }
+}
+
 /* 创作中状态 */
 .creating-state {
   display: flex;
@@ -1290,6 +1435,14 @@ $primary-dark: #764ba2;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
     gap: 12px;
+  }
+
+  .image-item {
+    margin: 0;
+    overflow: hidden;
+    background: #fafafa;
+    border: 1px solid #f0f0f0;
+    border-radius: 10px;
 
     img {
       display: block;
@@ -1297,7 +1450,22 @@ $primary-dark: #764ba2;
       height: 150px;
       object-fit: cover;
       background: #f0f0f0;
-      border-radius: 8px;
+    }
+
+    .image-info {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 8px 10px;
+
+      .keywords {
+        overflow: hidden;
+        font-size: 12px;
+        color: #999;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
     }
   }
 }

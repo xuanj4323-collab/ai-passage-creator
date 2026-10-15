@@ -11,6 +11,7 @@ import com.mypj.aipassagecreator.manager.SseEmitterManager;
 import com.mypj.aipassagecreator.model.dto.article.ArticleCreateRequest;
 import com.mypj.aipassagecreator.model.dto.article.ArticleQueryRequest;
 import com.mypj.aipassagecreator.model.entity.User;
+import com.mypj.aipassagecreator.model.enums.ArticleStyleEnum;
 import com.mypj.aipassagecreator.model.vo.ArticleVO;
 import com.mypj.aipassagecreator.service.ArticleAsyncService;
 import com.mypj.aipassagecreator.service.ArticleService;
@@ -50,14 +51,25 @@ public class ArticleController {
         ThrowUtils.throwIf(request == null, ErrorCode.PARAMS_ERROR);
         ThrowUtils.throwIf(request.getTopic() == null || request.getTopic().trim().isEmpty(),
                 ErrorCode.PARAMS_ERROR, "选题不能为空");
+        // 校验风格参数（允许为空）
+        ThrowUtils.throwIf(!ArticleStyleEnum.isValid(request.getStyle()),
+                ErrorCode.PARAMS_ERROR, "无效的文章风格");
 
         User loginUser = userService.getLoginUser(httpServletRequest);
 
-        // 创建文章任务
-        String taskId = articleService.createArticleTask(request.getTopic(), loginUser);
+        // 创建任务（包含风格参数）
+        String taskId = articleService.createArticleTaskWithQuotaCheck(
+                request.getTopic(),
+                request.getStyle(),
+                request.getEnabledImageMethods(),
+                loginUser);
 
-        // 异步执行文章生成
-        articleAsyncService.executeArticleGeneration(taskId, request.getTopic());
+        // 异步执行（传递风格和配图方式）
+        articleAsyncService.executeArticleGeneration(
+                taskId,
+                request.getTopic(),
+                request.getStyle(),
+                request.getEnabledImageMethods());
 
         return ResultUtils.success(taskId);
     }

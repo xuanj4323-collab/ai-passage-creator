@@ -45,6 +45,17 @@ public class Article implements Serializable {
     private String topic;
 
     /**
+     * 文章风格：tech/emotional/educational/humorous
+     */
+    private String style;
+
+    /**
+     * 允许的配图方式列表（JSON格式）
+     */
+    @Column(ignore = true)
+    private String enabledImageMethods;
+
+    /**
      * 主标题
      */
     private String mainTitle;

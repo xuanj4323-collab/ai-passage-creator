@@ -51,3 +51,6 @@ create table if not exists article
     INDEX idx_createTime (createTime),
     INDEX idx_userId_status (userId, status)
 ) comment '文章表' collate = utf8mb4_unicode_ci;
+
+
+

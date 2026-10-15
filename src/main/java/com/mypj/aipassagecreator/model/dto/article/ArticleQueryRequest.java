@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
+import java.io.Serial;
 import java.io.Serializable;
 
 /**
@@ -27,5 +28,6 @@ public class ArticleQueryRequest extends PageRequest implements Serializable {
      */
     private String status;
 
+    @Serial
     private static final long serialVersionUID = 1L;
 }

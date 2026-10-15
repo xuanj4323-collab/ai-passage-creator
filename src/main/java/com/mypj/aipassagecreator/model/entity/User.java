@@ -41,6 +41,7 @@ public class User implements Serializable {
     private String userAvatar;
     private String userProfile;
     private String userRole;
+    private Integer quota;
     private LocalDateTime editTime;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;

@@ -115,7 +115,8 @@
               decoding="async"
             />
             <figcaption class="image-info">
-              <a-tag v-if="image.method" color="blue">{{ image.method }}</a-tag>
+              <!-- method 是后端枚举值（如 UNSPLASH），展示中文更易读 -->
+              <a-tag v-if="image.method" color="blue">{{ getImageMethodText(image.method) }}</a-tag>
               <span class="keywords">{{ image.keywords || image.description || '-' }}</span>
             </figcaption>
           </figure>
@@ -158,6 +159,7 @@ import {
   copyText,
   downloadMarkdown,
   formatDateTime,
+  getImageMethodText,
   getStatusColor,
   getStatusText,
 } from './articleHelpers'

@@ -19,6 +19,10 @@ public interface ArticleConstant {
      */
     String PICSUM_URL_TEMPLATE = "https://picsum.photos/800/600?random=%d";
 
+    // region Bing 表情包相关常量
+    int BING_MAX_IMAGES = 30;
+
     // endregion
+
 }
 

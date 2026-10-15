@@ -6,10 +6,63 @@
  * 2）后端时间格式化（LocalDateTime 的两种序列化形态都要能兼容）
  * 3）文章 Markdown 组装与下载（创作页「导出」与详情页「导出」共用同一份规则）
  * 4）剪贴板复制（带非安全上下文的降级方案）
+ * 5）文章风格与配图方式的选项定义、配图来源文案
  *
  * @author ai-passage-creator
  */
 import dayjs, { type Dayjs } from 'dayjs'
+
+/** 文章风格选项，value 对应后端 ArticleStyleEnum；空值表示使用默认风格 */
+export interface ArticleStyleOption {
+  value: string
+  label: string
+}
+
+export const ARTICLE_STYLE_OPTIONS: ArticleStyleOption[] = [
+  { value: 'tech', label: '科技风格' },
+  { value: 'emotional', label: '情感风格' },
+  { value: 'educational', label: '教育风格' },
+  { value: 'humorous', label: '轻松幽默' },
+]
+
+/** 配图方式选项，value 对应后端 ImageMethodEnum */
+export interface ImageMethodOption {
+  value: string
+  label: string
+  description: string
+}
+
+/**
+ * 可选的配图方式
+ *
+ * 后端枚举里还有 PEXELS，但项目没有接入该图库（默认检索方式已改为 UNSPLASH），
+ * 所以不暴露给用户——否则选了它也拿不到图，只会白白降级成 Picsum 随机图。
+ * PICSUM 是后端兜底方案，同样不作为可选项。
+ */
+export const IMAGE_METHOD_OPTIONS: ImageMethodOption[] = [
+  { value: 'UNSPLASH', label: 'Unsplash', description: '真实场景、人物照片、自然风景' },
+  { value: 'NANO_BANANA', label: 'Nano Banana', description: '创意插画、艺术风格、文字渲染' },
+  { value: 'MERMAID', label: 'Mermaid', description: '流程图、架构图、时序图' },
+  { value: 'ICONIFY', label: 'Iconify', description: '图标、符号、小型装饰' },
+  { value: 'EMOJI_PACK', label: '表情包', description: '搞笑、轻松幽默的配图' },
+  { value: 'SVG_DIAGRAM', label: 'SVG 示意图', description: '概念示意、逻辑关系展示' },
+]
+
+/** 配图来源值 → 中文名（含未开放选择、但可能出现在历史数据里的降级方案） */
+const IMAGE_METHOD_TEXT: Record<string, string> = {
+  UNSPLASH: 'Unsplash 图库',
+  PEXELS: 'Pexels 图库',
+  NANO_BANANA: 'Nano Banana 生图',
+  MERMAID: 'Mermaid 图表',
+  ICONIFY: 'Iconify 图标',
+  EMOJI_PACK: '表情包',
+  SVG_DIAGRAM: 'SVG 示意图',
+  PICSUM: '随机图（降级）',
+}
+
+/** 配图来源值转中文文案 */
+export const getImageMethodText = (method?: string): string =>
+  method ? IMAGE_METHOD_TEXT[method] ?? method : '未知来源'
 
 /** 后端文章状态枚举，对应 ArticleStatusEnum */
 export type ArticleStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED'

@@ -2,6 +2,7 @@ package com.mypj.aipassagecreator.model.dto.article;
 
 import lombok.Data;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
 
@@ -17,6 +18,11 @@ public class ArticleState implements Serializable {
      * 选题
      */
     private String topic;
+
+    /**
+     * 文章风格
+     */
+    private String style;
 
     /**
      * 标题结果（智能体1输出）
@@ -53,7 +59,16 @@ public class ArticleState implements Serializable {
      */
     private String fullContent;
 
+    /**
+     * 序列化ID
+     */
+    @Serial
     private static final long serialVersionUID = 1L;
+
+    /**
+     * 允许的配图方式列表（为空表示支持所有方式）
+     */
+    private List<String> enabledImageMethods;
 
     /**
      * 标题结果
@@ -91,7 +106,14 @@ public class ArticleState implements Serializable {
         private String type;
         private String sectionTitle;
         private String keywords;
+        private String imageSource;
+        private String prompt;
+        /**
+         * 占位符ID，用于在正文中定位插入位置，格式：{{IMAGE_PLACEHOLDER_N}}
+         */
+        private String placeholderId;
     }
+
 
     /**
      * 配图结果
@@ -104,6 +126,27 @@ public class ArticleState implements Serializable {
         private String keywords;
         private String sectionTitle;
         private String description;
+        /**
+         * 占位符ID，用于在正文中定位插入位置，格式：{{IMAGE_PLACEHOLDER_N}}
+         */
+        private String placeholderId;
     }
+
+
+    /**
+     * 智能体4返回结果（包含带占位符的正文和配图需求列表）
+     */
+    @Data
+    public static class Agent4Result implements Serializable {
+        /**
+         * 包含占位符的正文内容
+         */
+        private String contentWithPlaceholders;
+        /**
+         * 配图需求列表
+         */
+        private List<ImageRequirement> imageRequirements;
+    }
+
 }
 
