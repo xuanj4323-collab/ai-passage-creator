@@ -67,6 +67,7 @@ public class ArticleController {
         // 异步执行（传递风格和配图方式）
         articleAsyncService.executeArticleGeneration(
                 taskId,
+                loginUser,
                 request.getTopic(),
                 request.getStyle(),
                 request.getEnabledImageMethods());

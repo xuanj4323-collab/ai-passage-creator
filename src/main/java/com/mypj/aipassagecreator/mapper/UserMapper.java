@@ -17,5 +17,8 @@ public interface UserMapper extends BaseMapper<User> {
      */
     @Update("UPDATE user SET quota = quota - 1 WHERE id = #{userId} AND quota > 0")
     int decrementQuota(@Param("userId") Long userId);
+
+    @Update("UPDATE user SET quota = quota + 1 WHERE id = #{id}")
+    void refundQuota(@Param("id") Long id);
 }
 

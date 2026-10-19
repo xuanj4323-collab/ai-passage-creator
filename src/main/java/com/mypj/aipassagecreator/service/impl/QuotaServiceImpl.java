@@ -87,6 +87,15 @@ public class QuotaServiceImpl implements QuotaService {
     }
 
     /**
+     * 退费
+     */
+    @Override
+    public void refundQuota(User user) {
+        userMapper.refundQuota(user.getId());
+        log.info("用户退费成功, userId={}", user.getId());
+    }
+
+    /**
      * 判断是否为管理员
      */
     private boolean isAdmin(User user) {

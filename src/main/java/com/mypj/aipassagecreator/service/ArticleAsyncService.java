@@ -2,6 +2,7 @@ package com.mypj.aipassagecreator.service;
 
 import com.mypj.aipassagecreator.manager.SseEmitterManager;
 import com.mypj.aipassagecreator.model.dto.article.ArticleState;
+import com.mypj.aipassagecreator.model.entity.User;
 import com.mypj.aipassagecreator.model.enums.ArticleStatusEnum;
 import com.mypj.aipassagecreator.model.enums.SseMessageTypeEnum;
 import com.mypj.aipassagecreator.utils.GsonUtils;
@@ -27,6 +28,9 @@ public class ArticleAsyncService {
     @Resource
     private ArticleService articleService;
 
+    @Resource
+    private QuotaService quotaService;
+
     /**
      * 异步执行文章生成
      *
@@ -36,7 +40,7 @@ public class ArticleAsyncService {
      * @param enabledImageMethods 允许的配图方式列表（为空表示支持所有方式）
      */
     @Async("articleExecutor")
-    public void executeArticleGeneration(String taskId, String topic, String style, java.util.List<String> enabledImageMethods) {
+    public void executeArticleGeneration(String taskId, User loginUser, String topic, String style, java.util.List<String> enabledImageMethods) {
         log.info("异步任务开始, taskId={}, topic={}, style={}, enabledImageMethods={}", taskId, topic, style, enabledImageMethods);
 
         try {
@@ -71,8 +75,12 @@ public class ArticleAsyncService {
         } catch (Exception e) {
             log.error("异步任务失败, taskId={}", taskId, e);
 
+
             // 更新状态为失败
             articleService.updateArticleStatus(taskId, ArticleStatusEnum.FAILED, e.getMessage());
+
+            // 退还配额
+            quotaService.refundQuota(loginUser);
 
             // 推送错误消息
             sendSseMessage(taskId, SseMessageTypeEnum.ERROR, Map.of("message", e.getMessage()));

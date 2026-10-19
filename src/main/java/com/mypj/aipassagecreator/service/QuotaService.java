@@ -25,4 +25,11 @@ public interface QuotaService {
      * @param user 用户
      */
     void checkAndConsumeQuota(User user);
+
+    /**
+     * 退还配额（加1次）
+     *
+     * @param user 用户
+     */
+    void refundQuota(User user);
 }
