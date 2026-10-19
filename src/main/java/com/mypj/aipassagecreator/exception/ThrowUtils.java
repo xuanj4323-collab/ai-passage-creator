@@ -3,7 +3,6 @@ package com.mypj.aipassagecreator.exception;
 /**
  * 异常抛出工具类
  *
- * @author <a href="https://codefather.cn">编程导航学习圈</a>
  */
 public class ThrowUtils {
 

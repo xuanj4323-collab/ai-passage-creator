@@ -21,7 +21,7 @@ import java.util.Map;
  * - 自动注册所有 ImageSearchService 实现
  * - 根据 ImageMethodEnum 的元数据自动选择正确的参数
  * - 支持服务可用性检查和自动降级
- * - 统一处理图片上传到 COS
+ * - 统一处理图片上传到 oss
  *
  */
 @Service
@@ -59,7 +59,7 @@ public class ImageServiceStrategy {
      *
      * @param imageSource 图片来源
      * @param request     图片请求对象
-     * @return 图片获取结果（包含 COS URL）
+     * @return 图片获取结果（包含 OSS URL）
      */
     public ImageResult getImageAndUpload(String imageSource, ImageRequest request) {
         ImageMethodEnum method = resolveMethod(imageSource);
@@ -81,11 +81,11 @@ public class ImageServiceStrategy {
 
             // 2. 上传到 OSS
             String folder = getFolderForMethod(method);
-            String cosUrl = ossService.uploadImageData(imageData, folder);
+            String ossUrl = ossService.uploadImageData(imageData, folder);
 
-            if (cosUrl != null && !cosUrl.isEmpty()) {
-                log.info("图片获取并上传成功, method={}, cosUrl={}", method, cosUrl);
-                return new ImageResult(cosUrl, method);
+            if (ossUrl != null && !ossUrl.isEmpty()) {
+                log.info("图片获取并上传成功, method={}, ossUrl={}", method, ossUrl);
+                return new ImageResult(ossUrl, method);
             } else {
                 log.warn("图片上传 OSS 失败, 使用降级方案, method={}", method);
                 return handleFallbackWithUpload(request.getPosition());
@@ -102,8 +102,7 @@ public class ImageServiceStrategy {
     private String getFolderForMethod(ImageMethodEnum method) {
         return switch (method) {
             case UNSPLASH -> "unsplash";
-            case PEXELS -> "pexels";
-            case NANO_BANANA -> "nano-banana";
+            case QWEN_IMAGE -> "qwen-image";
             case MERMAID -> "mermaid";
             case ICONIFY -> "iconify";
             case EMOJI_PACK -> "emoji-pack";
@@ -133,10 +132,10 @@ public class ImageServiceStrategy {
 
         // 将降级图片也上传到 OSS
         ImageData fallbackData = ImageData.fromUrl(fallbackUrl);
-        String cosUrl = ossService.uploadImageData(fallbackData, "fallback");
+        String ossUrl = ossService.uploadImageData(fallbackData, "fallback");
 
         // 如果上传失败，直接使用原始 URL
-        String finalUrl = (cosUrl != null && !cosUrl.isEmpty()) ? cosUrl : fallbackUrl;
+        String finalUrl = (ossUrl != null && !ossUrl.isEmpty()) ? ossUrl : fallbackUrl;
         return new ImageResult(finalUrl, ImageMethodEnum.getFallbackMethod());
     }
 

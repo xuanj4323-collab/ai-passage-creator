@@ -112,7 +112,7 @@ public interface PromptConstant {
                - 输出前请逐个检查 imageRequirements 中的 imageSource，确认每个值都出现在白名单中。
                - 若发现某个 imageSource 不在白名单中，必须改掉或删除该条配图，再重新检查，直到全部合规。
             5. 对于 UNSPLASH 来源：提供英文搜索关键词（keywords），要准确、具体。
-            6. 对于 NANO_BANANA 来源：提供详细的英文生图提示词（prompt），描述场景、风格、细节。
+            6. 对于 QWEN_IMAGE 来源：提供详细的生图提示词（prompt），描述场景、风格、细节。
             7. 对于 MERMAID 来源：
                - 分析文章内容，识别需要流程图的位置（如：工作流程、系统架构、数据流向等）
                - 在 prompt 字段生成完整的 Mermaid 代码
@@ -137,7 +137,7 @@ public interface PromptConstant {
             
             字段填写规则（按 imageSource 决定哪些字段有值）：
             - UNSPLASH：keywords 有值，prompt 留空
-            - NANO_BANANA：prompt 有值，keywords 留空
+            - QWEN_IMAGE：prompt 有值，keywords 留空
             - MERMAID：prompt 有值（Mermaid 代码），keywords 留空
             - ICONIFY：keywords 有值，prompt 留空
             - EMOJI_PACK：keywords 有值，prompt 留空
@@ -151,7 +151,7 @@ public interface PromptConstant {
                   "position": 1,
                   "type": "cover",
                   "sectionTitle": "",
-                  "imageSource": "NANO_BANANA",
+                  "imageSource": "QWEN_IMAGE",
                   "keywords": "",
                   "prompt": "A modern minimalist illustration of AI technology concept, featuring abstract neural network patterns with blue and purple gradient colors, clean design suitable for article cover, 16:9 aspect ratio",
                   "placeholderId": ""

@@ -18,14 +18,9 @@ public enum ImageMethodEnum {
     UNSPLASH("UNSPLASH", "Unsplash 图库", false, false),
 
     /**
-     * Pexels 图库检索
+     * qwenImage AI生成
      */
-    PEXELS("PEXELS", "Pexels 图库", false, false),
-
-    /**
-     * Nano Banana AI 生图（Gemini 原生图片生成）
-     */
-    NANO_BANANA("NANO_BANANA", "Nano Banana AI 生图", true, false),
+    QWEN_IMAGE("QWEN_IMAGE", "Qwen Image AI 生成", true, false),
 
     /**
      * Mermaid 流程图生成
@@ -116,7 +111,7 @@ public enum ImageMethodEnum {
      * 获取默认的 AI 生图方式
      */
     public static ImageMethodEnum getDefaultAiMethod() {
-        return NANO_BANANA;
+        return QWEN_IMAGE;
     }
 
     /**

@@ -41,7 +41,7 @@ export interface ImageMethodOption {
  */
 export const IMAGE_METHOD_OPTIONS: ImageMethodOption[] = [
   { value: 'UNSPLASH', label: 'Unsplash', description: '真实场景、人物照片、自然风景' },
-  { value: 'NANO_BANANA', label: 'Nano Banana', description: '创意插画、艺术风格、文字渲染' },
+  { value: 'QWEN_IMAGE', label: 'Qwen Image', description: '创意插画、艺术风格、文字渲染' },
   { value: 'MERMAID', label: 'Mermaid', description: '流程图、架构图、时序图' },
   { value: 'ICONIFY', label: 'Iconify', description: '图标、符号、小型装饰' },
   { value: 'EMOJI_PACK', label: '表情包', description: '搞笑、轻松幽默的配图' },
@@ -51,8 +51,7 @@ export const IMAGE_METHOD_OPTIONS: ImageMethodOption[] = [
 /** 配图来源值 → 中文名（含未开放选择、但可能出现在历史数据里的降级方案） */
 const IMAGE_METHOD_TEXT: Record<string, string> = {
   UNSPLASH: 'Unsplash 图库',
-  PEXELS: 'Pexels 图库',
-  NANO_BANANA: 'Nano Banana 生图',
+  QWEN_IMAGE: 'Qwen Image 生图',
   MERMAID: 'Mermaid 图表',
   ICONIFY: 'Iconify 图标',
   EMOJI_PACK: '表情包',

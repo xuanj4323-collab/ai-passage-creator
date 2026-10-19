@@ -349,7 +349,7 @@ public class ArticleAgentService {
     private String getMethodUsageDescription(ImageMethodEnum method) {
         return switch (method) {
             case UNSPLASH -> "适合真实场景、产品照片、人物照片、自然风景等写实图片";
-            case NANO_BANANA -> "适合创意插画、信息图表、需要文字渲染、抽象概念、艺术风格等 AI 生成图片";
+            case QWEN_IMAGE -> "适合创意插画、信息图表、需要文字渲染、抽象概念、艺术风格等 AI 生成图片";
             case MERMAID -> "适合流程图、架构图、时序图、关系图、甘特图等结构化图表";
             case ICONIFY -> "适合图标、符号、小型装饰性图标（如：箭头、勾选、星星、心形等）";
             case EMOJI_PACK -> "适合表情包、搞笑图片、轻松幽默的配图";

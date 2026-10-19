@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+import java.io.Serial;
 import java.io.Serializable;
 
 @Data
@@ -16,5 +17,8 @@ public class UserRegisterRequest implements Serializable {
     private String userPassword;
     @NotBlank(message = "确认密码不能为空")
     private String checkPassword;
+
+    @Serial
+    private static final long serialVersionUID = 1L;
 }
 

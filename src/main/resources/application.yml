@@ -12,9 +12,8 @@ spring:
     password: ${Mysql_Password}
   # session 配置
   session:
-    store-type: redis
     # session 30 天过期
-    timeout: 2592000
+    timeout: 30d
   # Redis 配置
   data:
     redis:
@@ -37,7 +36,8 @@ server:
     # cookie 30 天过期
     session:
       cookie:
-        max-age: 2592000
+        name: PASSAGE_SESSION
+        max-age: 30d
 
 # springdoc-openapi 配置
 springdoc:
@@ -80,7 +80,7 @@ iconify:
 # 表情包图片检索配置
 emoji-pack:
   search-url: https://cn.bing.com/images/async
-  suffix: 表情包
+  suffix: 熊猫头表情包
   timeout: 10000  # 请求超时（毫秒）
 
 # SVG 概念示意图生成配置
@@ -98,3 +98,8 @@ aliyun:
     bucket: ai-passage-creator-mypj
     # 对外访问域名（不含协议）；不配置时按 oss-{region}.aliyuncs.com 兜底推导
     endpoint: oss-cn-beijing.aliyuncs.com
+
+dashscope:
+  qwen-image:
+    base-http-api-url: https://ws-cindfuqih00tmdhy.cn-beijing.maas.aliyuncs.com/api/v1
+    aly-api-key: ${ALY_API_KEY}

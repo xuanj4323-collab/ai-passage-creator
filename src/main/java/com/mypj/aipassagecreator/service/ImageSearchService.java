@@ -28,7 +28,7 @@ public interface ImageSearchService {
     }
 
     /**
-     * 获取图片数据（用于统一上传到 COS）
+     * 获取图片数据（用于统一上传到 OSS）
      * 子类可重写此方法返回更高效的数据格式（如字节数据）
      *
      * @param request 图片请求对象
