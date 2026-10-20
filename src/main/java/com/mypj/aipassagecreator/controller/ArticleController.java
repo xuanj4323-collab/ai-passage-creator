@@ -13,10 +13,12 @@ import com.mypj.aipassagecreator.model.dto.article.ArticleQueryRequest;
 import com.mypj.aipassagecreator.model.entity.User;
 import com.mypj.aipassagecreator.model.enums.ArticleStatusEnum;
 import com.mypj.aipassagecreator.model.enums.ArticleStyleEnum;
+import com.mypj.aipassagecreator.model.enums.SseMessageTypeEnum;
 import com.mypj.aipassagecreator.model.vo.ArticleVO;
 import com.mypj.aipassagecreator.service.ArticleAsyncService;
 import com.mypj.aipassagecreator.service.ArticleService;
 import com.mypj.aipassagecreator.service.UserService;
+import com.mypj.aipassagecreator.utils.GsonUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.annotation.Resource;
@@ -24,6 +26,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/article")
@@ -88,21 +93,40 @@ public class ArticleController {
         // 校验权限（内部会检查任务是否存在以及用户是否有权限访问）
         User loginUser = userService.getLoginUser(httpServletRequest);
         ArticleVO articleDetail = articleService.getArticleDetail(taskId, loginUser);
-
         ArticleStatusEnum status = ArticleStatusEnum.getByValue(articleDetail.getStatus());
-
 
         // 创建 SSE Emitter
         SseEmitter emitter = sseEmitterManager.createEmitter(taskId);
         log.info("SSE 连接已建立, taskId={}", taskId);
 
-        if (status.isTerminal()){
-            sseEmitterManager.send(taskId, "任务已完成");
-            sseEmitterManager.complete(taskId);
-            log.info("任务已是终态, 直接推送并关闭, taskId={}, status={}", taskId, status);
+        // 任务已是终态时不会再有异步推送。若只建连而不补发消息，前端会一直停在「创作中」
+        // 直到超时——所以立即补齐一条终态消息并关闭连接。
+        if (status != null && status.isTerminal()) {
+            sendTerminalState(taskId, status, articleDetail.getErrorMessage());
+            log.info("任务已是终态, 已补发消息并关闭连接, taskId={}, status={}", taskId, status.getValue());
         }
 
         return emitter;
+    }
+
+    /**
+     * 终态任务建连时的补偿推送。
+     * <p>
+     * 消息格式必须与 ArticleAsyncService 产出的完全一致：前端统一按 type 分派，
+     * 且会对 data 做 JSON.parse，因此不能像早先那样直接下发纯文本（会导致解析失败被吞掉）。
+     */
+    private void sendTerminalState(String taskId, ArticleStatusEnum status, String errorMessage) {
+        Map<String, Object> payload = new HashMap<>();
+        if (status == ArticleStatusEnum.COMPLETED) {
+            payload.put("type", SseMessageTypeEnum.ALL_COMPLETE.getValue());
+            payload.put("taskId", taskId);
+        } else {
+            payload.put("type", SseMessageTypeEnum.ERROR.getValue());
+            payload.put("message", errorMessage != null && !errorMessage.isBlank()
+                    ? errorMessage : "任务已失败");
+        }
+        sseEmitterManager.send(taskId, GsonUtils.toJson(payload));
+        sseEmitterManager.complete(taskId);
     }
 
     /**

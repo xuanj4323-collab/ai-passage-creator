@@ -44,13 +44,20 @@ public class ArticleAsyncService {
         log.info("异步任务开始, taskId={}, topic={}, style={}, enabledImageMethods={}", taskId, topic, style, enabledImageMethods);
 
         try {
-            // 更新状态为处理中
-            boolean started = articleService.updateArticleStatus(taskId, ArticleStatusEnum.PENDING, ArticleStatusEnum.PROCESSING, null);
+            // 条件更新：只有 PENDING → PROCESSING 成功，才说明本次执行被真正触发。
+            // 重复提交、重试、或状态被其他流程改写时 affectedRows = 0，直接放弃，
+            // 避免重复消耗 LLM 与生图费用。
+            boolean started = articleService.updateArticleStatus(
+                    taskId, ArticleStatusEnum.PENDING, ArticleStatusEnum.PROCESSING, null);
             if (!started) {
-                log.warn("任务可能已被处理过, taskId={}", taskId);
-                // 直接返回, 节省资源
+                log.warn("任务状态已非 PENDING，跳过本次执行, taskId={}", taskId);
+                // 前端此刻正在等进度，必须明确告知「这次不会产出」，
+                // 否则它只能一直空等到 SSE 超时。
+                sendSseMessage(taskId, SseMessageTypeEnum.ERROR,
+                        Map.of("message", "任务已被处理或状态异常，请刷新页面查看结果"));
                 return;
             }
+
             // 创建状态对象
             ArticleState state = new ArticleState();
             state.setTaskId(taskId);
@@ -67,19 +74,23 @@ public class ArticleAsyncService {
             articleService.saveArticleContent(taskId, state);
 
             // 更新状态为已完成
-            boolean completed = articleService.updateArticleStatus(taskId, ArticleStatusEnum.PROCESSING, ArticleStatusEnum.COMPLETED, null);
+            boolean completed = articleService.updateArticleStatus(
+                    taskId, ArticleStatusEnum.PROCESSING, ArticleStatusEnum.COMPLETED, null);
+            if (!completed) {
+                // 内容已成功落库，但状态转换未生效（并发竞争等极端场景）。
+                // 取舍：以「内容已生成、用户已等待」为准继续推送完成消息，
+                // 用 error 级别留痕便于排查，不因状态机冲突让用户白等一次生成。
+                log.error("状态 PROCESSING→COMPLETED 未生效，内容已落库但状态可能不一致, taskId={}", taskId);
+            }
 
             // 推送完成消息
             sendSseMessage(taskId, SseMessageTypeEnum.ALL_COMPLETE, Map.of("taskId", taskId));
-
-            // 完成 SSE 连接
-            sseEmitterManager.complete(taskId);
 
             log.info("异步任务完成, taskId={}", taskId);
         } catch (Exception e) {
             log.error("异步任务失败, taskId={}", taskId, e);
 
-            // 如果任务状态未终端状态，则标记为失败
+            // 只有「本次把任务从非终态推到 FAILED」才退配额，用 affectedRows 保证幂等
             boolean transitioned = articleService.markFailedIfNotTerminal(taskId, e.getMessage());
             if (transitioned) {
                 quotaService.refundQuota(loginUser);
@@ -88,11 +99,24 @@ public class ArticleAsyncService {
             }
 
             // 推送错误消息
-            sendSseMessage(taskId, SseMessageTypeEnum.ERROR, Map.of("message", e.getMessage()));
-
-            // 完成 SSE 连接
+            sendSseMessage(taskId, SseMessageTypeEnum.ERROR, Map.of("message", resolveErrorMessage(e)));
+        } finally {
+            // 统一关闭出口：成功 / 失败 / 提前返回 / 意外异常 都必须经过这里。
+            // 只在 try 和 catch 里各写一次 complete()，第三个分支（提前 return）就会漏，
+            // emitter 会滞留在 Map 中直到 30 分钟超时才被清理，前端一直空等。
             sseEmitterManager.complete(taskId);
         }
+    }
+
+    /**
+     * 提取可展示给用户的错误信息。
+     * <p>
+     * e.getMessage() 可能为 null（如部分 NPE、无消息异常），而 Map.of 不接受 null 值
+     * 会直接抛 NPE——这会把「推送失败原因」变成「推送本身崩了」。
+     */
+    private String resolveErrorMessage(Exception e) {
+        String message = e.getMessage();
+        return message != null && !message.isBlank() ? message : e.getClass().getSimpleName();
     }
 
     /**

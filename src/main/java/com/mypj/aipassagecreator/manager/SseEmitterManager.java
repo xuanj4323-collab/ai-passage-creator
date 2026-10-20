@@ -27,6 +27,18 @@ public class SseEmitterManager {
      * @return SseEmitter
      */
     public SseEmitter createEmitter(String taskId) {
+        // 同一任务重复建连（典型场景：用户刷新页面）时，先关闭旧连接。
+        // 否则旧 emitter 会被新值覆盖、引用丢失，只能等 30 分钟超时才被回收。
+        SseEmitter previous = emitterMap.remove(taskId);
+        if (previous != null) {
+            try {
+                previous.complete();
+                log.debug("已关闭同任务的旧 SSE 连接, taskId={}", taskId);
+            } catch (Exception e) {
+                log.debug("关闭旧 SSE 连接失败（可忽略）, taskId={}", taskId, e);
+            }
+        }
+
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
 
         // 设置超时回调
@@ -71,7 +83,7 @@ public class SseEmitterManager {
                     .data(message)
                     .reconnectTime(SSE_RECONNECT_TIME_MS));
             log.debug("SSE 消息发送成功, taskId={}, message={}", taskId, message);
-        } catch (   IOException e) {
+        } catch (IOException e) {
             log.error("SSE 消息发送失败, taskId={}", taskId, e);
             emitterMap.remove(taskId);
         }
@@ -85,7 +97,10 @@ public class SseEmitterManager {
     public void complete(String taskId) {
         SseEmitter emitter = emitterMap.get(taskId);
         if (emitter == null) {
-            log.warn("SSE Emitter 不存在, taskId={}", taskId);
+            // 降为 debug：任务正常结束时统一出口会调用 complete，
+            // 而前端可能压根没建过连接（如纯 API 调用、用户提前关页），
+            // 这属于正常情况，用 warn 只会制造误导性的日志噪音。
+            log.debug("SSE Emitter 不存在（未建连或已关闭）, taskId={}", taskId);
             return;
         }
 

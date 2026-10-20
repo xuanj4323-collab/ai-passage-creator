@@ -19,7 +19,6 @@ import com.mypj.aipassagecreator.service.QuotaService;
 import com.mypj.aipassagecreator.utils.GsonUtils;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,8 +34,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
 
     @Resource
     private QuotaService quotaService;
-    @Autowired
-    private ArticleMapper articleMapper;
+    // 无需额外注入 ArticleMapper：父类 ServiceImpl<ArticleMapper, Article> 已提供 protected 的 mapper 字段
 
     @Override
     public String createArticleTask(String topic, String style, List<String> enabledImageMethods, User loginUser) {
@@ -77,16 +75,38 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     }
 
     @Override
-    public boolean updateArticleStatus(String taskId, ArticleStatusEnum fromStatus, ArticleStatusEnum toStatus, String errorMessage) {
+    public boolean updateArticleStatus(String taskId, ArticleStatusEnum fromStatus,
+                                       ArticleStatusEnum toStatus, String errorMessage) {
+        if (taskId == null || fromStatus == null || toStatus == null) {
+            log.warn("状态更新参数不完整, taskId={}, from={}, to={}", taskId, fromStatus, toStatus);
+            return false;
+        }
 
-        int affectedRows = articleMapper.updateArticleStatus(taskId, fromStatus, toStatus, errorMessage);
+        // 显式传枚举的 value 而不是枚举对象：避免 MyBatis EnumTypeHandler 走 name()，
+        // 导致「枚举 value 与 name 不再一致」时 SQL 静默匹配不到记录
+        int affectedRows = mapper.updateArticleStatus(taskId, fromStatus.getValue(),
+                toStatus.getValue(), errorMessage);
+
+        if (affectedRows > 0) {
+            log.info("文章状态已更新, taskId={}, {} -> {}", taskId, fromStatus.getValue(), toStatus.getValue());
+        } else {
+            log.warn("文章状态未更新（当前状态不匹配）, taskId={}, 期望原状态={}", taskId, fromStatus.getValue());
+        }
         return affectedRows > 0;
     }
 
     @Override
     public boolean markFailedIfNotTerminal(String taskId, String errorMessage) {
+        if (taskId == null) {
+            return false;
+        }
 
-        int affectedRows = articleMapper.markFailedIfNotTerminal(taskId, errorMessage);
+        int affectedRows = mapper.markFailedIfNotTerminal(taskId, errorMessage);
+        if (affectedRows > 0) {
+            log.info("文章已标记为失败, taskId={}", taskId);
+        } else {
+            log.warn("文章已是终态，跳过失败标记, taskId={}", taskId);
+        }
         return affectedRows > 0;
     }
 
