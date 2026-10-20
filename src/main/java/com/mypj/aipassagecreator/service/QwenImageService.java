@@ -8,15 +8,18 @@ import com.alibaba.dashscope.common.Role;
 import com.alibaba.dashscope.exception.ApiException;
 import com.alibaba.dashscope.exception.NoApiKeyException;
 import com.alibaba.dashscope.exception.UploadFileException;
+import com.alibaba.dashscope.protocol.ConnectionConfigurations;
 import com.alibaba.dashscope.utils.Constants;
 import com.mypj.aipassagecreator.config.QwenImageConfig;
 import com.mypj.aipassagecreator.model.dto.image.ImageData;
 import com.mypj.aipassagecreator.model.dto.image.ImageRequest;
 import com.mypj.aipassagecreator.model.enums.ImageMethodEnum;
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -31,6 +34,17 @@ import static com.mypj.aipassagecreator.constant.ArticleConstant.PICSUM_URL_TEMP
 @Service
 @Slf4j
 public class QwenImageService implements ImageSearchService {
+
+    @PostConstruct
+    public void init() {
+        Constants.baseHttpApiUrl = qwenImageConfig.getBaseHttpApiUrl();
+        Constants.connectionConfigurations = ConnectionConfigurations.builder()
+                .connectTimeout(Duration.ofSeconds(30))   // 连接超时，默认 120 秒
+                .readTimeout(Duration.ofSeconds(300))     // 读取超时，默认 300 秒，文生图耗时长可以调大
+                .writeTimeout(Duration.ofSeconds(60))     // 写入超时，默认 60 秒
+                .build();
+    }
+
 
     @Resource
     private QwenImageConfig qwenImageConfig;
@@ -56,8 +70,6 @@ public class QwenImageService implements ImageSearchService {
      */
     public ImageData generateImageData(String prompt) {
         try {
-            // 设置 DashScope API 端点（需替换 {WorkspaceId} 为真实业务空间 ID）
-            Constants.baseHttpApiUrl = qwenImageConfig.getBaseHttpApiUrl();
 
             String apiKey = qwenImageConfig.getAlyApiKey();
             String model = qwenImageConfig.getModel() != null
