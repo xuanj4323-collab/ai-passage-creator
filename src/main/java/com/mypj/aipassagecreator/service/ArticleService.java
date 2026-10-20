@@ -70,10 +70,21 @@ public interface ArticleService extends IService<Article> {
      * 更新文章状态
      *
      * @param taskId       任务ID
-     * @param status       状态枚举
+     * @param fromStatus  原状态枚举
+     * @param toStatus     新状态枚举
      * @param errorMessage 错误信息（可选）
+     * @return 是否成功
      */
-    void updateArticleStatus(String taskId, ArticleStatusEnum status, String errorMessage);
+    boolean updateArticleStatus(String taskId, ArticleStatusEnum fromStatus, ArticleStatusEnum toStatus, String errorMessage);
+
+    /**
+     * 如果文章状态不是终端状态，则标记为失败
+     *
+     * @param taskId       任务ID
+     * @param errorMessage 错误信息（可选）
+     * @return 是否成功
+     */
+    boolean markFailedIfNotTerminal(String taskId, String errorMessage);
 
     /**
      * 保存文章内容

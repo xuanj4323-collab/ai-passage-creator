@@ -30,6 +30,11 @@ public enum ArticleStatusEnum {
         this.description = description;
     }
 
+    /** 是否为终态：进入后不再变化 */
+    public boolean isTerminal() {
+        return this == COMPLETED || this == FAILED;
+    }
+
     /**
      * 根据值获取枚举
      *
@@ -47,4 +52,5 @@ public enum ArticleStatusEnum {
         }
         return null;
     }
+
 }

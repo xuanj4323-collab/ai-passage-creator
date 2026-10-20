@@ -19,6 +19,7 @@ import com.mypj.aipassagecreator.service.QuotaService;
 import com.mypj.aipassagecreator.utils.GsonUtils;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +35,8 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
 
     @Resource
     private QuotaService quotaService;
+    @Autowired
+    private ArticleMapper articleMapper;
 
     @Override
     public String createArticleTask(String topic, String style, List<String> enabledImageMethods, User loginUser) {
@@ -74,19 +77,17 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     }
 
     @Override
-    public void updateArticleStatus(String taskId, ArticleStatusEnum status, String errorMessage) {
-        Article article = getByTaskId(taskId);
+    public boolean updateArticleStatus(String taskId, ArticleStatusEnum fromStatus, ArticleStatusEnum toStatus, String errorMessage) {
 
-        if (article == null) {
-            log.error("文章记录不存在, taskId={}", taskId);
-            return;
-        }
+        int affectedRows = articleMapper.updateArticleStatus(taskId, fromStatus, toStatus, errorMessage);
+        return affectedRows > 0;
+    }
 
-        article.setStatus(status.getValue());
-        article.setErrorMessage(errorMessage);
-        this.updateById(article);
+    @Override
+    public boolean markFailedIfNotTerminal(String taskId, String errorMessage) {
 
-        log.info("文章状态已更新, taskId={}, status={}", taskId, status.getValue());
+        int affectedRows = articleMapper.markFailedIfNotTerminal(taskId, errorMessage);
+        return affectedRows > 0;
     }
 
     @Override

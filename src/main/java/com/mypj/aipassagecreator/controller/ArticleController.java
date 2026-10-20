@@ -11,6 +11,7 @@ import com.mypj.aipassagecreator.manager.SseEmitterManager;
 import com.mypj.aipassagecreator.model.dto.article.ArticleCreateRequest;
 import com.mypj.aipassagecreator.model.dto.article.ArticleQueryRequest;
 import com.mypj.aipassagecreator.model.entity.User;
+import com.mypj.aipassagecreator.model.enums.ArticleStatusEnum;
 import com.mypj.aipassagecreator.model.enums.ArticleStyleEnum;
 import com.mypj.aipassagecreator.model.vo.ArticleVO;
 import com.mypj.aipassagecreator.service.ArticleAsyncService;
@@ -86,12 +87,21 @@ public class ArticleController {
 
         // 校验权限（内部会检查任务是否存在以及用户是否有权限访问）
         User loginUser = userService.getLoginUser(httpServletRequest);
-        articleService.getArticleDetail(taskId, loginUser);
+        ArticleVO articleDetail = articleService.getArticleDetail(taskId, loginUser);
+
+        ArticleStatusEnum status = ArticleStatusEnum.getByValue(articleDetail.getStatus());
+
 
         // 创建 SSE Emitter
         SseEmitter emitter = sseEmitterManager.createEmitter(taskId);
-
         log.info("SSE 连接已建立, taskId={}", taskId);
+
+        if (status.isTerminal()){
+            sseEmitterManager.send(taskId, "任务已完成");
+            sseEmitterManager.complete(taskId);
+            log.info("任务已是终态, 直接推送并关闭, taskId={}, status={}", taskId, status);
+        }
+
         return emitter;
     }
 

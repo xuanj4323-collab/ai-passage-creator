@@ -45,8 +45,12 @@ public class ArticleAsyncService {
 
         try {
             // 更新状态为处理中
-            articleService.updateArticleStatus(taskId, ArticleStatusEnum.PROCESSING, null);
-
+            boolean started = articleService.updateArticleStatus(taskId, ArticleStatusEnum.PENDING, ArticleStatusEnum.PROCESSING, null);
+            if (!started) {
+                log.warn("任务可能已被处理过, taskId={}", taskId);
+                // 直接返回, 节省资源
+                return;
+            }
             // 创建状态对象
             ArticleState state = new ArticleState();
             state.setTaskId(taskId);
@@ -63,7 +67,7 @@ public class ArticleAsyncService {
             articleService.saveArticleContent(taskId, state);
 
             // 更新状态为已完成
-            articleService.updateArticleStatus(taskId, ArticleStatusEnum.COMPLETED, null);
+            boolean completed = articleService.updateArticleStatus(taskId, ArticleStatusEnum.PROCESSING, ArticleStatusEnum.COMPLETED, null);
 
             // 推送完成消息
             sendSseMessage(taskId, SseMessageTypeEnum.ALL_COMPLETE, Map.of("taskId", taskId));
@@ -75,12 +79,13 @@ public class ArticleAsyncService {
         } catch (Exception e) {
             log.error("异步任务失败, taskId={}", taskId, e);
 
-
-            // 更新状态为失败
-            articleService.updateArticleStatus(taskId, ArticleStatusEnum.FAILED, e.getMessage());
-
-            // 退还配额
-            quotaService.refundQuota(loginUser);
+            // 如果任务状态未终端状态，则标记为失败
+            boolean transitioned = articleService.markFailedIfNotTerminal(taskId, e.getMessage());
+            if (transitioned) {
+                quotaService.refundQuota(loginUser);
+            } else {
+                log.warn("任务已处于终态，跳过退款, taskId={}", taskId);
+            }
 
             // 推送错误消息
             sendSseMessage(taskId, SseMessageTypeEnum.ERROR, Map.of("message", e.getMessage()));
