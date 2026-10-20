@@ -91,6 +91,11 @@ public class QuotaServiceImpl implements QuotaService {
      */
     @Override
     public void refundQuota(User user) {
+        if (isAdmin(user)){
+            log.info("管理员无需退费, userId={}", user.getId());
+            return;
+        }
+
         userMapper.refundQuota(user.getId());
         log.info("用户退费成功, userId={}", user.getId());
     }
