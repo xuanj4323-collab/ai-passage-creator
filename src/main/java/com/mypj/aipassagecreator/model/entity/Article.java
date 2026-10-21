@@ -50,12 +50,6 @@ public class Article implements Serializable {
     private String style;
 
     /**
-     * 允许的配图方式列表（JSON格式）
-     */
-    @Column(ignore = true)
-    private String enabledImageMethods;
-
-    /**
      * 主标题
      */
     private String mainTitle;
@@ -89,6 +83,27 @@ public class Article implements Serializable {
      * 配图列表（JSON数组）
      */
     private String images;
+
+    /**
+     * 用户补充描述
+     */
+    private String userDescription;
+
+    /**
+     * 允许的配图方式列表（JSON格式）
+     */
+    private String enabledImageMethods;
+
+    /**
+     * 标题方案列表（JSON格式）
+     */
+    private String titleOptions;
+
+    /**
+     * 当前阶段：PENDING/TITLE_GENERATING/TITLE_SELECTING/OUTLINE_GENERATING/OUTLINE_EDITING/CONTENT_GENERATING
+     */
+    private String phase;
+
 
     /**
      * 状态：PENDING/PROCESSING/COMPLETED/FAILED

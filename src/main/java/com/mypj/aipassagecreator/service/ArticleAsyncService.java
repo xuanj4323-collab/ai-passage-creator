@@ -1,8 +1,11 @@
 package com.mypj.aipassagecreator.service;
 
+import com.google.gson.reflect.TypeToken;
 import com.mypj.aipassagecreator.manager.SseEmitterManager;
 import com.mypj.aipassagecreator.model.dto.article.ArticleState;
+import com.mypj.aipassagecreator.model.entity.Article;
 import com.mypj.aipassagecreator.model.entity.User;
+import com.mypj.aipassagecreator.model.enums.ArticlePhaseEnum;
 import com.mypj.aipassagecreator.model.enums.ArticleStatusEnum;
 import com.mypj.aipassagecreator.model.enums.SseMessageTypeEnum;
 import com.mypj.aipassagecreator.utils.GsonUtils;
@@ -31,19 +34,20 @@ public class ArticleAsyncService {
     @Resource
     private QuotaService quotaService;
 
+
     /**
-     * 异步执行文章生成
+     * 阶段1：异步生成标题方案
      *
-     * @param taskId              任务ID
-     * @param topic               选题
-     * @param style               文章风格（可为空）
-     * @param enabledImageMethods 允许的配图方式列表（为空表示支持所有方式）
+     * @param taskId 任务ID
+     * @param topic  选题
+     * @param style  文章风格（可为空）
      */
     @Async("articleExecutor")
-    public void executeArticleGeneration(String taskId, User loginUser, String topic, String style, java.util.List<String> enabledImageMethods) {
-        log.info("异步任务开始, taskId={}, topic={}, style={}, enabledImageMethods={}", taskId, topic, style, enabledImageMethods);
+    public void executePhase1(String taskId, User loginUser, String topic, String style) {
+        log.info("阶段1异步任务开始, taskId={}, topic={}, style={}", taskId, topic, style);
 
         try {
+            // 更新状态和阶段
             // 条件更新：只有 PENDING → PROCESSING 成功，才说明本次执行被真正触发。
             // 重复提交、重试、或状态被其他流程改写时 affectedRows = 0，直接放弃，
             // 避免重复消耗 LLM 与生图费用。
@@ -57,16 +61,139 @@ public class ArticleAsyncService {
                         Map.of("message", "任务已被处理或状态异常，请刷新页面查看结果"));
                 return;
             }
+            articleService.updatePhase(taskId, ArticlePhaseEnum.PENDING, ArticlePhaseEnum.TITLE_GENERATING);
 
             // 创建状态对象
             ArticleState state = new ArticleState();
             state.setTaskId(taskId);
             state.setTopic(topic);
             state.setStyle(style);
-            state.setEnabledImageMethods(enabledImageMethods);
 
-            // 执行智能体编排,并通过 SSE 推送进度
-            articleAgentService.executeArticleGeneration(state, message -> {
+            // 执行阶段1：生成标题方案
+            articleAgentService.executePhase1_GenerateTitles(state, message -> {
+                handleAgentMessage(taskId, message, state);
+            });
+
+            // 保存标题方案到数据库
+            articleService.saveTitleOptions(taskId, state.getTitleOptions());
+
+            // 更新阶段为等待选择标题
+            articleService.updatePhase(taskId, ArticlePhaseEnum.TITLE_GENERATING, ArticlePhaseEnum.TITLE_SELECTING);
+
+            // 推送标题方案生成完成消息
+            Map<String, Object> data = new HashMap<>();
+            data.put("titleOptions", state.getTitleOptions());
+            sendSseMessage(taskId, SseMessageTypeEnum.TITLES_GENERATED, data);
+
+            log.info("阶段1异步任务完成, taskId={}", taskId);
+        } catch (Exception e) {
+            log.error("阶段1异步任务失败, taskId={}", taskId, e);
+            failedAndRefundQuota(taskId, loginUser, e);
+        }
+    }
+
+    /**
+     * 阶段2：异步生成大纲（用户确认标题后调用）
+     *
+     * @param taskId 任务ID
+     */
+    @Async("articleExecutor")
+    public void executePhase2(String taskId, User loginUser) {
+        log.info("阶段2异步任务开始, taskId={}", taskId);
+
+        try {
+            // 获取文章信息
+            Article article = articleService.getByTaskId(taskId);
+            if (article == null) {
+                throw new RuntimeException("文章不存在");
+            }
+
+            // 创建状态对象
+            ArticleState state = new ArticleState();
+            state.setTaskId(taskId);
+            state.setStyle(article.getStyle());
+            state.setUserDescription(article.getUserDescription());
+
+            // 设置标题
+            ArticleState.TitleResult title = new ArticleState.TitleResult();
+            title.setMainTitle(article.getMainTitle());
+            title.setSubTitle(article.getSubTitle());
+            state.setTitle(title);
+
+            // 执行阶段2：生成大纲
+            articleAgentService.executePhase2_GenerateOutline(state, message -> {
+                handleAgentMessage(taskId, message, state);
+            });
+
+            // 保存大纲到数据库
+            Article articleToUpdate = articleService.getByTaskId(taskId);
+            articleToUpdate.setOutline(GsonUtils.toJson(state.getOutline().getSections()));
+            articleService.updateById(articleToUpdate);
+
+            // 更新阶段为等待编辑大纲
+            articleService.updatePhase(taskId, ArticlePhaseEnum.OUTLINE_GENERATING, ArticlePhaseEnum.OUTLINE_EDITING);
+
+            // 推送大纲生成完成消息
+            Map<String, Object> data = new HashMap<>();
+            data.put("outline", state.getOutline().getSections());
+            sendSseMessage(taskId, SseMessageTypeEnum.OUTLINE_GENERATED, data);
+
+            log.info("阶段2异步任务完成, taskId={}", taskId);
+        } catch (Exception e) {
+            log.error("阶段2异步任务失败, taskId={}", taskId, e);
+
+            failedAndRefundQuota(taskId, loginUser, e);
+        }
+    }
+
+    /**
+     * 阶段3：异步生成正文+配图（用户确认大纲后调用）
+     *
+     * @param taskId 任务ID
+     */
+    @Async("articleExecutor")
+    public void executePhase3(String taskId, User loginUser) {
+        log.info("阶段3异步任务开始, taskId={}", taskId);
+
+        try {
+            // 获取文章信息
+            Article article = articleService.getByTaskId(taskId);
+            if (article == null) {
+                throw new RuntimeException("文章不存在");
+            }
+
+            // 创建状态对象
+            ArticleState state = new ArticleState();
+            state.setTaskId(taskId);
+            state.setStyle(article.getStyle());
+
+            // 从数据库获取允许的配图方式
+            List<String> enabledMethods = null;
+            if (article.getEnabledImageMethods() != null) {
+                enabledMethods = GsonUtils.fromJson(
+                        article.getEnabledImageMethods(),
+                        new TypeToken<List<String>>(){}
+                );
+            }
+            state.setEnabledImageMethods(enabledMethods);
+
+            // 设置标题
+            ArticleState.TitleResult title = new ArticleState.TitleResult();
+            title.setMainTitle(article.getMainTitle());
+            title.setSubTitle(article.getSubTitle());
+            state.setTitle(title);
+
+            // 设置大纲
+            List<ArticleState.OutlineSection> outlineSections = GsonUtils.fromJson(
+                    article.getOutline(),
+                    new TypeToken<List<ArticleState.OutlineSection>>(){}
+            );
+            ArticleState.OutlineResult outlineResult = new ArticleState.OutlineResult();
+            outlineResult.setSections(outlineSections);
+            state.setOutline(outlineResult);
+
+            // 执行阶段3：生成正文+配图
+            articleAgentService.executePhase3_GenerateContent(state, message -> {
                 handleAgentMessage(taskId, message, state);
             });
 
@@ -74,39 +201,40 @@ public class ArticleAsyncService {
             articleService.saveArticleContent(taskId, state);
 
             // 更新状态为已完成
-            boolean completed = articleService.updateArticleStatus(
-                    taskId, ArticleStatusEnum.PROCESSING, ArticleStatusEnum.COMPLETED, null);
-            if (!completed) {
-                // 内容已成功落库，但状态转换未生效（并发竞争等极端场景）。
-                // 取舍：以「内容已生成、用户已等待」为准继续推送完成消息，
-                // 用 error 级别留痕便于排查，不因状态机冲突让用户白等一次生成。
-                log.error("状态 PROCESSING→COMPLETED 未生效，内容已落库但状态可能不一致, taskId={}", taskId);
-            }
+            articleService.updateArticleStatus(taskId, ArticleStatusEnum.PROCESSING, ArticleStatusEnum.COMPLETED, null);
 
             // 推送完成消息
             sendSseMessage(taskId, SseMessageTypeEnum.ALL_COMPLETE, Map.of("taskId", taskId));
 
-            log.info("异步任务完成, taskId={}", taskId);
-        } catch (Exception e) {
-            log.error("异步任务失败, taskId={}", taskId, e);
-
-            // 只有「本次把任务从非终态推到 FAILED」才退配额，用 affectedRows 保证幂等
-            boolean transitioned = articleService.markFailedIfNotTerminal(taskId, e.getMessage());
-            if (transitioned) {
-                quotaService.refundQuota(loginUser);
-            } else {
-                log.warn("任务已处于终态，跳过退款, taskId={}", taskId);
-            }
-
-            // 推送错误消息
-            sendSseMessage(taskId, SseMessageTypeEnum.ERROR, Map.of("message", resolveErrorMessage(e)));
-        } finally {
-            // 统一关闭出口：成功 / 失败 / 提前返回 / 意外异常 都必须经过这里。
-            // 只在 try 和 catch 里各写一次 complete()，第三个分支（提前 return）就会漏，
-            // emitter 会滞留在 Map 中直到 30 分钟超时才被清理，前端一直空等。
+            // 完成 SSE 连接
             sseEmitterManager.complete(taskId);
+
+            log.info("阶段3异步任务完成, taskId={}", taskId);
+        } catch (Exception e) {
+            log.error("阶段3异步任务失败, taskId={}", taskId, e);
+
+            failedAndRefundQuota(taskId, loginUser, e);
         }
     }
+
+    /**
+     * 将任务标记为失败并退配额
+     * @param taskId 任务ID
+     * @param loginUser 登录用户
+     * @param e 异常
+    */
+    private void failedAndRefundQuota(String taskId, User loginUser, Exception e) {
+        // 只有「本次把任务从非终态推到 FAILED」才退配额，用 affectedRows 保证幂等
+        boolean transitioned = articleService.markFailedIfNotTerminal(taskId, e.getMessage());
+        if (transitioned) {
+            quotaService.refundQuota(loginUser);
+        } else {
+            log.warn("任务已处于终态，跳过退款, taskId={}", taskId);
+        }
+        sendSseMessage(taskId, SseMessageTypeEnum.ERROR, Map.of("message", resolveErrorMessage(e)));
+        sseEmitterManager.complete(taskId);
+    }
+
 
     /**
      * 提取可展示给用户的错误信息。

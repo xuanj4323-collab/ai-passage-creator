@@ -6,6 +6,7 @@ import com.mypj.aipassagecreator.model.dto.article.ArticleQueryRequest;
 import com.mypj.aipassagecreator.model.dto.article.ArticleState;
 import com.mypj.aipassagecreator.model.entity.Article;
 import com.mypj.aipassagecreator.model.entity.User;
+import com.mypj.aipassagecreator.model.enums.ArticlePhaseEnum;
 import com.mypj.aipassagecreator.model.enums.ArticleStatusEnum;
 import com.mypj.aipassagecreator.model.vo.ArticleVO;
 
@@ -102,4 +103,52 @@ public interface ArticleService extends IService<Article> {
      * @return 文章VO
      */
     ArticleVO getArticleDetail(String taskId, User loginUser);
+
+    /**
+     * 确认标题（用户选择后）
+     *
+     * @param taskId       任务ID
+     * @param mainTitle    选中的主标题
+     * @param subTitle     选中的副标题
+     * @param userDescription 用户补充描述
+     * @param loginUser    当前登录用户
+     */
+    void confirmTitle(String taskId, String mainTitle, String subTitle, String userDescription, User loginUser);
+
+    /**
+     * 确认大纲（用户编辑后）
+     *
+     * @param taskId    任务ID
+     * @param outline   用户编辑后的大纲
+     * @param loginUser 当前登录用户
+     */
+    void confirmOutline(String taskId, List<ArticleState.OutlineSection> outline, User loginUser);
+
+    /**
+     * 更新阶段
+     *
+     * @param taskId 任务ID
+     * @param fromPhase 原阶段枚举
+     * @param toPhase  新阶段枚举
+     */
+    void updatePhase(String taskId, ArticlePhaseEnum fromPhase, ArticlePhaseEnum toPhase);
+
+    /**
+     * 保存标题方案
+     *
+     * @param taskId       任务ID
+     * @param titleOptions 标题方案列表
+     */
+    void saveTitleOptions(String taskId, List<ArticleState.TitleOption> titleOptions);
+
+    /**
+     * AI 修改大纲
+     *
+     * @param taskId           任务ID
+     * @param modifySuggestion 用户修改建议
+     * @param loginUser        当前登录用户
+     * @return 修改后的大纲
+     */
+    List<ArticleState.OutlineSection> aiModifyOutline(String taskId, String modifySuggestion, User loginUser);
+
 }
