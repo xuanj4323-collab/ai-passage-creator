@@ -15,9 +15,11 @@ import com.mypj.aipassagecreator.model.entity.Article;
 import com.mypj.aipassagecreator.model.entity.User;
 import com.mypj.aipassagecreator.model.enums.ArticlePhaseEnum;
 import com.mypj.aipassagecreator.model.enums.ArticleStatusEnum;
+import com.mypj.aipassagecreator.model.enums.ImageMethodEnum;
 import com.mypj.aipassagecreator.model.vo.ArticleVO;
 import com.mypj.aipassagecreator.service.ArticleAgentService;
 import com.mypj.aipassagecreator.service.ArticleService;
+import com.mypj.aipassagecreator.service.ImageServiceStrategy;
 import com.mypj.aipassagecreator.service.QuotaService;
 import com.mypj.aipassagecreator.utils.GsonUtils;
 import jakarta.annotation.Resource;
@@ -42,8 +44,14 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     @Resource
     private ArticleAgentService articleAgentService;
 
+    @Resource
+    private ImageServiceStrategy imageServiceStrategy;
+
     @Override
     public String createArticleTask(String topic, String style, List<String> enabledImageMethods, User loginUser) {
+        // 获取已注册的所有图片生成方法
+        List<String> registeredMethods = imageServiceStrategy.getRegisteredMethods().stream().map(ImageMethodEnum::getValue).toList();
+
         // 生成任务ID
         String taskId = IdUtil.simpleUUID();
 
@@ -53,7 +61,7 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         article.setUserId(loginUser.getId());
         article.setTopic(topic);
         article.setStyle(style);
-        article.setEnabledImageMethods(GsonUtils.toJson(enabledImageMethods));
+        article.setEnabledImageMethods(enabledImageMethods == null ? GsonUtils.toJson(registeredMethods) : GsonUtils.toJson(enabledImageMethods));
         article.setStatus(ArticleStatusEnum.PENDING.getValue());
         article.setCreateTime(LocalDateTime.now());
 
@@ -284,13 +292,9 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
             return;
         }
 
-        boolean updateTrue = updateChain()
-                .set("phase", toStatus.getValue())
-                .where("taskId", taskId)
-                .and("phase", fromStatus.getValue())
-                .update();
+        int affectedRows = mapper.updateArticlePhase(taskId, fromStatus.getValue(), toStatus.getValue());
 
-        if (updateTrue) {
+        if (affectedRows > 0) {
             log.info("文章阶段已更新, taskId={}, {} -> {}", taskId, fromStatus.getValue(), toStatus.getValue());
         } else {
             log.warn("文章阶段未更新（当前状态不匹配）, taskId={}, 期望原阶段={}", taskId, fromStatus.getValue());

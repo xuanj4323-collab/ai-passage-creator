@@ -1,3 +1,7 @@
 mybatis-flex:
   configuration:
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+logging:
+  file:
+    name: F:\JavaAI\ai-passage-creator\logs\myapp.log

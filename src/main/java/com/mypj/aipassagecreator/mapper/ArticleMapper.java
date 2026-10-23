@@ -48,4 +48,10 @@ public interface ArticleMapper extends BaseMapper<Article> {
             "WHERE taskId = #{taskId} AND status NOT IN ('COMPLETED', 'FAILED')")
     int markFailedIfNotTerminal(@Param("taskId") String taskId,
                                 @Param("errorMessage") String errorMessage);
+
+    @Update("UPDATE article SET phase = #{toPhase} " +
+            "WHERE taskId = #{taskId} AND phase = #{fromPhase}")
+    int updateArticlePhase(@Param("taskId") String taskId,
+                            @Param("fromPhase") String fromPhase,
+                            @Param("toPhase") String toPhase);
 }
