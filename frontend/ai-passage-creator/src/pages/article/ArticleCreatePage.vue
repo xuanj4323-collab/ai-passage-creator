@@ -39,8 +39,10 @@
 
       <!-- ==================== 中间：主内容区 ==================== -->
       <main ref="mainContentRef" class="main-content" @scroll.passive="handleContentScroll">
-        <!-- ---------- 状态一：输入选题 ---------- -->
-        <section v-if="!isCreating && !isCompleted" class="input-state">
+        <!-- 阶段切换由 currentPhase 驱动；Transition 提供滑入滑出的动画 -->
+        <Transition name="fade-slide" mode="out-in">
+        <!-- ---------- 阶段一：输入选题 ---------- -->
+        <section v-if="currentPhase === 'INPUT'" key="input" class="input-state">
           <div class="input-card">
             <header class="input-header">
               <h1 class="input-title">创作新文章</h1>
@@ -119,8 +121,70 @@
           </div>
         </section>
 
-        <!-- ---------- 状态二：创作进行中 ---------- -->
-        <section v-else-if="isCreating && !isCompleted" class="creating-state">
+        <!-- ---------- 阶段二：生成标题方案 ---------- -->
+        <section
+          v-else-if="currentPhase === 'TITLE_GENERATING'"
+          key="title-generating"
+          class="loading-stage"
+        >
+          <a-spin size="large" />
+          <h3>AI 正在生成标题方案...</h3>
+          <p>稍等片刻，即将为您呈现多个精彩标题</p>
+        </section>
+
+        <!-- ---------- 阶段三：选择标题方案 ---------- -->
+        <TitleSelectingStage
+          v-else-if="currentPhase === 'TITLE_SELECTING'"
+          key="title-selecting"
+          :title-options="titleOptions"
+          :loading="confirmLoading"
+          @confirm="handleConfirmTitle"
+        />
+
+        <!-- ---------- 阶段四：生成大纲（流式预览） ---------- -->
+        <section
+          v-else-if="currentPhase === 'OUTLINE_GENERATING'"
+          key="outline-generating"
+          class="outline-generating-state"
+        >
+          <div v-if="article.mainTitle" class="preview-header">
+            <h1 class="article-title">{{ article.mainTitle }}</h1>
+            <p class="article-subtitle">{{ article.subTitle }}</p>
+          </div>
+
+          <div class="outline-preview">
+            <div class="section-label">
+              <BulbOutlined />
+              <span>AI 正在规划文章大纲</span>
+              <span v-if="isOutlineStreaming" class="typing-cursor" aria-hidden="true">|</span>
+            </div>
+            <div v-if="parsedOutline.length > 0" class="outline-list">
+              <div
+                v-for="(item, index) in parsedOutline"
+                :key="item.section ?? index"
+                class="outline-item"
+              >
+                <div class="outline-title">{{ item.section ?? index + 1 }}. {{ item.title }}</div>
+                <ul v-if="item.points?.length" class="outline-points">
+                  <li v-for="(point, idx) in item.points" :key="idx">{{ point }}</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ---------- 阶段五：编辑大纲 ---------- -->
+        <OutlineEditingStage
+          v-else-if="currentPhase === 'OUTLINE_EDITING'"
+          key="outline-editing"
+          :outline="outline"
+          :loading="confirmLoading"
+          :task-id="taskId"
+          @confirm="handleConfirmOutline"
+        />
+
+        <!-- ---------- 阶段六：生成正文与配图 ---------- -->
+        <section v-else-if="currentPhase === 'CONTENT_GENERATING'" key="content-generating" class="creating-state">
           <!-- 标题预览 -->
           <div v-if="article.mainTitle" class="preview-header">
             <h1 class="article-title">{{ article.mainTitle }}</h1>
@@ -185,8 +249,8 @@
           </div>
         </section>
 
-        <!-- ---------- 状态三：创作完成 ---------- -->
-        <section v-else-if="isCompleted" class="completed-state">
+        <!-- ---------- 阶段七：创作完成 ---------- -->
+        <section v-else-if="currentPhase === 'COMPLETED'" key="completed" class="completed-state">
           <div class="success-banner">
             <CheckCircleFilled class="success-icon" />
             <div class="success-text">
@@ -255,6 +319,7 @@
             </section>
           </article>
         </section>
+        </Transition>
       </main>
 
       <!-- ==================== 右侧：辅助面板 ==================== -->
@@ -349,7 +414,7 @@ import {
   RocketOutlined,
   WarningOutlined,
 } from '@ant-design/icons-vue'
-import { createArticle, getArticle } from '@/api/articleController'
+import { confirmOutline, confirmTitle, createArticle, getArticle } from '@/api/articleController'
 import { openSse, type SseConnection } from '@/utils/sse'
 import { markdownToHtml } from '@/utils/markdown'
 import request from '@/request'
@@ -361,6 +426,8 @@ import {
   getImageMethodText,
   IMAGE_METHOD_OPTIONS,
 } from './articleHelpers'
+import TitleSelectingStage from './components/TitleSelectingStage.vue'
+import OutlineEditingStage from './components/OutlineEditingStage.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -401,7 +468,9 @@ interface ProgressMessage {
   content?: string
   /** AGENT1_COMPLETE：标题结果 */
   title?: { mainTitle?: string; subTitle?: string }
-  /** AGENT2_COMPLETE：完整大纲（数组） */
+  /** TITLES_GENERATED：标题方案列表（等待用户选择） */
+  titleOptions?: Array<{ mainTitle?: string; subTitle?: string }>
+  /** AGENT2_COMPLETE / OUTLINE_GENERATED：完整大纲（数组） */
   outline?: API.OutlineItem[]
   /** AGENT4_COMPLETE：配图需求列表，用于计算配图总数 */
   imageRequirements?: Array<{ position?: number; type?: string; sectionTitle?: string; keywords?: string }>
@@ -418,7 +487,31 @@ interface ProgressMessage {
 /** 文章草稿：在 VO 基础上补充 SSE 独有字段（ArticleVO 中没有 fullContent） */
 type ArticleDraft = API.ArticleVO & { fullContent?: string }
 
+/**
+ * 创作阶段（三阶段人机协作流程）
+ *
+ * 完全由后端推送的 SSE 消息驱动，前端只负责按阶段切换 UI：
+ * 生成标题 → 选择标题 → 生成大纲 → 编辑大纲 → 生成正文 → 完成
+ */
+type CreatePhase =
+  | 'INPUT'
+  | 'TITLE_GENERATING'
+  | 'TITLE_SELECTING'
+  | 'OUTLINE_GENERATING'
+  | 'OUTLINE_EDITING'
+  | 'CONTENT_GENERATING'
+  | 'COMPLETED'
+
 // ==================== 页面状态 ====================
+
+/** 当前创作阶段 */
+const currentPhase = ref<CreatePhase>('INPUT')
+/** 标题方案（TITLES_GENERATED 推送） */
+const titleOptions = ref<Array<{ mainTitle: string; subTitle: string }>>([])
+/** 待编辑的大纲（OUTLINE_GENERATED 推送） */
+const outline = ref<API.OutlineSection[]>([])
+/** 确认标题 / 确认大纲的请求状态 */
+const confirmLoading = ref(false)
 
 const topic = ref('')
 /** 创作参数：文章风格，空字符串表示使用默认风格 */
@@ -625,21 +718,39 @@ const createProgressSource = (id: string) => {
 const handleSSEMessage = (msg: ProgressMessage) => {
   switch (msg.type) {
     case 'AGENT1_COMPLETE': {
-      // 标题生成完成
+      // 标题方案生成完成（具体方案由随后的 TITLES_GENERATED 下发）
+      currentPhase.value = 'TITLE_GENERATING'
       currentStep.value = 1
-      article.value.mainTitle = msg.title?.mainTitle ?? ''
-      article.value.subTitle = msg.title?.subTitle ?? ''
+      break
+    }
+    case 'TITLES_GENERATED': {
+      // 标题方案生成完成，等待用户选择
+      currentPhase.value = 'TITLE_SELECTING'
+      isCreating.value = false
+      titleOptions.value = (msg.titleOptions ?? []).map((item) => ({
+        mainTitle: item.mainTitle ?? '',
+        subTitle: item.subTitle ?? '',
+      }))
       break
     }
     case 'AGENT2_STREAMING': {
-      // 大纲流式输出
+      // 大纲流式输出：让用户实时看到 AI 正在规划的结构，而不是干等转圈
+      currentPhase.value = 'OUTLINE_GENERATING'
       isOutlineStreaming.value = true
       outlineRaw.value += msg.content ?? ''
       scheduleScrollToBottom()
       break
     }
+    case 'OUTLINE_GENERATED': {
+      // 大纲生成完成，等待用户编辑确认
+      currentPhase.value = 'OUTLINE_EDITING'
+      isOutlineStreaming.value = false
+      isCreating.value = false
+      outline.value = Array.isArray(msg.outline) ? msg.outline : []
+      break
+    }
     case 'AGENT2_COMPLETE': {
-      // 大纲完成：以服务端下发的数组为准
+      // 大纲流式结束（最终数据以 OUTLINE_GENERATED 为准）
       isOutlineStreaming.value = false
       currentStep.value = 2
       if (Array.isArray(msg.outline)) {
@@ -649,6 +760,7 @@ const handleSSEMessage = (msg: ProgressMessage) => {
     }
     case 'AGENT3_STREAMING': {
       // 正文流式输出
+      currentPhase.value = 'CONTENT_GENERATING'
       isStreaming.value = true
       article.value.content = `${article.value.content ?? ''}${msg.content ?? ''}`
       scheduleScrollToBottom()
@@ -696,6 +808,7 @@ const handleSSEMessage = (msg: ProgressMessage) => {
       break
     }
     case 'ALL_COMPLETE': {
+      currentPhase.value = 'COMPLETED'
       currentStep.value = agentSteps.length
       isCompleted.value = true
       isCreating.value = false
@@ -710,6 +823,8 @@ const handleSSEMessage = (msg: ProgressMessage) => {
       errorMessage.value = msg.message || '创作失败'
       errorVisible.value = true
       isCreating.value = false
+      // 任务已失败，退回输入态让用户重新创作
+      currentPhase.value = 'INPUT'
       break
     }
     default:
@@ -776,7 +891,7 @@ const resetStreamingState = () => {
   }
 }
 
-/** 开始创作 */
+/** 开始创作：创建任务并进入阶段一（生成标题方案） */
 const startCreate = async () => {
   const trimmed = topic.value.trim()
   if (!trimmed) {
@@ -791,6 +906,8 @@ const startCreate = async () => {
   resetStreamingState()
   isCreating.value = true
   isCompleted.value = false
+  // 阶段一：后端开始生成多个标题方案
+  currentPhase.value = 'TITLE_GENERATING'
   currentStep.value = 0
   autoFollow.value = true
 
@@ -814,6 +931,64 @@ const startCreate = async () => {
   } catch (error: any) {
     message.error(error?.message || '创建任务失败')
     isCreating.value = false
+    currentPhase.value = 'INPUT'
+  }
+}
+
+/**
+ * 确认标题，进入大纲生成
+ *
+ * 成功后故意不直接切换阶段，而是等后端推送 AGENT2_STREAMING / OUTLINE_GENERATED：
+ * 后端要到 confirm-title 处理完才把阶段推进到 OUTLINE_GENERATING，
+ * 以 SSE 为准可以保证前后端状态始终一致。
+ */
+const handleConfirmTitle = async (data: {
+  mainTitle: string
+  subTitle: string
+  userDescription: string
+}) => {
+  confirmLoading.value = true
+  try {
+    await confirmTitle({
+      taskId: taskId.value,
+      selectedMainTitle: data.mainTitle,
+      selectedSubTitle: data.subTitle,
+      userDescription: data.userDescription,
+    })
+
+    // 先落到本地状态，供「大纲生成中」阶段展示标题
+    article.value.mainTitle = data.mainTitle
+    article.value.subTitle = data.subTitle
+
+    message.success('标题已确认，正在生成大纲...')
+  } catch (error: any) {
+    message.error(error?.message || '确认标题失败')
+  } finally {
+    confirmLoading.value = false
+  }
+}
+
+/** 确认大纲，进入正文生成 */
+const handleConfirmOutline = async (
+  outlineData: Array<{ section: number; title: string; points: string[] }>,
+) => {
+  confirmLoading.value = true
+  try {
+    await confirmOutline({
+      taskId: taskId.value,
+      outline: outlineData,
+    })
+
+    // 同步为大纲原文，便于后续展示与导出
+    outlineRaw.value = JSON.stringify({ sections: outlineData })
+    // 以用户编辑后的版本为准，否则完成态导出用的还是 AI 最初生成的大纲
+    article.value.outline = outlineData
+
+    message.success('大纲已确认，正在生成正文...')
+  } catch (error: any) {
+    message.error(error?.message || '确认大纲失败')
+  } finally {
+    confirmLoading.value = false
   }
 }
 
@@ -876,6 +1051,11 @@ const resetCreate = () => {
   // 一并重置创作参数，避免下一篇沿用上一篇的风格与配图方式
   selectedStyle.value = ''
   selectedImageMethods.value = []
+  // 重置阶段与阶段数据，否则「再创作一篇」会残留上一次的标题方案与大纲
+  currentPhase.value = 'INPUT'
+  titleOptions.value = []
+  outline.value = []
+  confirmLoading.value = false
   taskId.value = ''
   currentStep.value = 0
   isCreating.value = false
@@ -1240,6 +1420,55 @@ $primary-dark: #764ba2;
       background: rgba(102, 126, 234, 0.08);
     }
   }
+}
+
+/* 阶段切换过渡：离开向左淡出、进入从右滑入，营造「往前走」的流程感 */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.3s ease;
+}
+
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateX(30px);
+}
+
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+/* 生成中的加载态 */
+.loading-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 120px 40px;
+  text-align: center;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+
+  h3 {
+    margin: 24px 0 8px;
+    font-size: 20px;
+    font-weight: 600;
+    color: #1a1a1a;
+  }
+
+  p {
+    margin: 0;
+    font-size: 14px;
+    color: #8c8c8c;
+  }
+}
+
+/* 大纲生成中：标题预览 + 流式大纲 */
+.outline-generating-state {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
 }
 
 /* 创作中状态 */

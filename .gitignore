@@ -6,6 +6,7 @@ target/
 **/src/main/resources/application-dev.yml
 test/
 node_modules/
+logs/
 
 ### STS ###
 .apt_generated
