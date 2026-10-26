@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 支付服务实现
@@ -65,7 +66,16 @@ public class PaymentServiceImpl implements PaymentService {
     @Transactional(rollbackFor = Exception.class)
     public void handlePaymentSuccess(Session session) {
         String sessionId = session.getId();
-        String userId = session.getMetadata().get("userId");
+
+        // 兼容 deserializeUnsafe 的兜底路径：跨 API 版本反序列化时 metadata 可能为空，
+        // 显式判空，避免 NPE 掩盖真正的问题（元数据缺失）
+        Map<String, String> metadata = session.getMetadata();
+        String userId = metadata != null ? metadata.get("userId") : null;
+        if (userId == null || userId.isBlank()) {
+            log.error("支付会话缺少 userId 元数据, sessionId={}", sessionId);
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "支付会话信息不完整，无法开通会员");
+        }
+
         String paymentIntentId = session.getPaymentIntent();
 
         PaymentRecord record = findPaymentRecordBySessionId(sessionId);
