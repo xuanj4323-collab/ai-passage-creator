@@ -286,10 +286,10 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     }
 
     @Override
-    public void updatePhase(String taskId, ArticlePhaseEnum fromStatus, ArticlePhaseEnum toStatus) {
-        if (taskId == null){
-            log.warn("taskId 为空");
-            return;
+    public boolean updatePhase(String taskId, ArticlePhaseEnum fromStatus, ArticlePhaseEnum toStatus) {
+        if (taskId == null || fromStatus == null || toStatus == null) {
+            log.warn("阶段更新参数不完整, taskId={}, from={}, to={}", taskId, fromStatus, toStatus);
+            return false;
         }
 
         int affectedRows = mapper.updateArticlePhase(taskId, fromStatus.getValue(), toStatus.getValue());
@@ -297,9 +297,9 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         if (affectedRows > 0) {
             log.info("文章阶段已更新, taskId={}, {} -> {}", taskId, fromStatus.getValue(), toStatus.getValue());
         } else {
-            log.warn("文章阶段未更新（当前状态不匹配）, taskId={}, 期望原阶段={}", taskId, fromStatus.getValue());
+            log.warn("文章阶段未更新（当前阶段不匹配）, taskId={}, 期望原阶段={}", taskId, fromStatus.getValue());
         }
-
+        return affectedRows > 0;
     }
 
     @Override

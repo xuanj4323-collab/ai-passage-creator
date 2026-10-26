@@ -38,6 +38,11 @@ declare namespace API {
     topic?: string;
     mainTitle?: string;
     subTitle?: string;
+    /** 当前阶段：PENDING/TITLE_GENERATING/TITLE_SELECTING/OUTLINE_GENERATING/OUTLINE_EDITING/CONTENT_GENERATING */
+    phase?: string;
+    /** 标题方案列表（TITLE_SELECTING 阶段用于恢复界面） */
+    titleOptions?: TitleOption[];
+    userDescription?: string;
     outline?: OutlineItem[];
     content?: string;
     images?: ImageItem[];
@@ -45,6 +50,11 @@ declare namespace API {
     errorMessage?: string;
     createTime?: string;
     completedTime?: string;
+  };
+
+  type TitleOption = {
+    mainTitle?: string;
+    subTitle?: string;
   };
 
   type BaseResponseArticleVO = {

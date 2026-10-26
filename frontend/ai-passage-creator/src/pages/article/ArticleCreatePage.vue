@@ -684,6 +684,13 @@ const handleContentScroll = () => {
 // ==================== SSE ====================
 
 /**
+ * 阶段结束消息：服务端推完这些消息后会主动 complete 连接。
+ * 前端提前把它们识别为终态，才能干净地调用 close()，
+ * 而不是等服务端断开后触发 onerror 再走异常分支。
+ */
+const PHASE_END_MESSAGES = ['TITLES_GENERATED', 'OUTLINE_GENERATED']
+
+/**
  * 建立进度 SSE 连接
  *
  * utils/sse 的 openSse 不对路径做假设，所以这里基于 request 实例的 baseURL 拼出绝对地址：
@@ -693,11 +700,21 @@ const handleContentScroll = () => {
  * 页面只负责业务决策——异常时提示什么、怎么收尾。
  */
 const createProgressSource = (id: string) => {
+  // 重连场景下旧连接可能仍开着，先释放，避免引用被覆盖后泄漏
+  sseConnection?.close()
+  sseConnection = null
+
   const baseURL = (request.defaults.baseURL as string) || '/api'
   const url = `${baseURL.replace(/\/+$/, '')}/article/progress/${encodeURIComponent(id)}`
 
   sseConnection = openSse<ProgressMessage>({
     url,
+    // 三阶段协作的每个阶段都会主动关闭连接（用户思考期间不需要长连接），
+    // 因此阶段完成消息同样视为终态
+    isTerminal: (payload) =>
+      payload.type === 'ALL_COMPLETE' ||
+      payload.type === 'ERROR' ||
+      PHASE_END_MESSAGES.includes(payload.type),
     onMessage: handleSSEMessage,
     onError: () => {
       // 能走到这里说明不是终态后的正常余波（那种已被 openSse 吞掉），而是真的断了。
@@ -871,6 +888,94 @@ const ensureFinalArticle = async () => {
   }
 }
 
+// ==================== 状态恢复 ====================
+
+/**
+ * 按后端详情恢复页面阶段与数据
+ *
+ * SSE 是「实时事件流」，错过就无法回溯；而三阶段流程中用户随时可能刷新，
+ * 因此必须有一个可查询的真相源（ArticleVO 的 phase + 各阶段产物）来重建界面。
+ */
+const restoreFromDetail = (detail: API.ArticleVO) => {
+  taskId.value = detail.taskId ?? ''
+  topic.value = detail.topic ?? topic.value
+
+  article.value = {
+    ...article.value,
+    mainTitle: detail.mainTitle ?? '',
+    subTitle: detail.subTitle ?? '',
+    content: detail.content ?? '',
+    outline: detail.outline ?? [],
+    images: detail.images ?? [],
+  }
+
+  // 整体状态优先于阶段：完成 / 失败时不再看 phase
+  if (detail.status === 'COMPLETED') {
+    currentPhase.value = 'COMPLETED'
+    isCompleted.value = true
+    isCreating.value = false
+    currentStep.value = agentSteps.length
+    return
+  }
+  if (detail.status === 'FAILED') {
+    currentPhase.value = 'INPUT'
+    errorMessage.value = detail.errorMessage || '创作失败'
+    errorVisible.value = true
+    isCreating.value = false
+    return
+  }
+
+  switch (detail.phase) {
+    case 'TITLE_SELECTING':
+      currentPhase.value = 'TITLE_SELECTING'
+      titleOptions.value = (detail.titleOptions ?? []).map((item) => ({
+        mainTitle: item.mainTitle ?? '',
+        subTitle: item.subTitle ?? '',
+      }))
+      isCreating.value = false
+      break
+    case 'OUTLINE_EDITING':
+      currentPhase.value = 'OUTLINE_EDITING'
+      outline.value = detail.outline ?? []
+      isCreating.value = false
+      break
+    case 'TITLE_GENERATING':
+    case 'OUTLINE_GENERATING':
+    case 'CONTENT_GENERATING':
+      currentPhase.value = detail.phase
+      isCreating.value = true
+      break
+    default:
+      // PENDING 或未知阶段：回到输入态，避免误展示一个空壳界面
+      currentPhase.value = 'INPUT'
+      isCreating.value = false
+  }
+}
+
+/** 通过 taskId 恢复创作现场（刷新页面 / 从列表页「继续编辑」进入） */
+const resumeFromTaskId = async (id: string) => {
+  taskId.value = id
+  try {
+    const res = await getArticle({ taskId: id })
+    const detail = res.data?.data
+    if (!detail) {
+      message.warning('未找到该创作任务，请重新开始')
+      return
+    }
+
+    restoreFromDetail(detail)
+
+    // 只有「生成中」阶段需要继续接收推送；
+    // 「等待用户操作」与终态阶段服务端不会主动推消息，建连也只是空等
+    if (currentPhase.value.endsWith('_GENERATING')) {
+      createProgressSource(id)
+    }
+  } catch (error) {
+    console.error('恢复创作任务失败:', error)
+    message.error('恢复创作任务失败，请重新开始')
+  }
+}
+
 // ==================== 创作流程 ====================
 
 /** 清空上一轮的流式中间状态 */
@@ -926,6 +1031,10 @@ const startCreate = async () => {
     }
     taskId.value = newTaskId
 
+    // 把 taskId 写进地址栏：刷新页面时 onMounted 可据此恢复创作现场，
+    // 否则刷新即回到输入页、找不到刚才的任务
+    void router.replace({ query: { ...route.query, taskId: newTaskId } })
+
     // 拿到 taskId 后立即建连：后端不缓存历史消息，越早连接越不容易丢首条进度
     createProgressSource(newTaskId)
   } catch (error: any) {
@@ -938,9 +1047,9 @@ const startCreate = async () => {
 /**
  * 确认标题，进入大纲生成
  *
- * 成功后故意不直接切换阶段，而是等后端推送 AGENT2_STREAMING / OUTLINE_GENERATED：
- * 后端要到 confirm-title 处理完才把阶段推进到 OUTLINE_GENERATING，
- * 以 SSE 为准可以保证前后端状态始终一致。
+ * 成功后会乐观切到「大纲生成中」：上一阶段结束时服务端已主动关闭连接，
+ * 如果推送因网络问题丢失，用户也不会停在「选择标题」界面以为确认没生效。
+ * 大纲数据仍以 SSE 推送为准。
  */
 const handleConfirmTitle = async (data: {
   mainTitle: string
@@ -949,6 +1058,9 @@ const handleConfirmTitle = async (data: {
 }) => {
   confirmLoading.value = true
   try {
+    // 先重连再触发阶段 2：不重连的话服务端推送时会找不到 emitter，消息被静默丢弃
+    createProgressSource(taskId.value)
+
     await confirmTitle({
       taskId: taskId.value,
       selectedMainTitle: data.mainTitle,
@@ -959,6 +1071,9 @@ const handleConfirmTitle = async (data: {
     // 先落到本地状态，供「大纲生成中」阶段展示标题
     article.value.mainTitle = data.mainTitle
     article.value.subTitle = data.subTitle
+
+    currentPhase.value = 'OUTLINE_GENERATING'
+    isCreating.value = true
 
     message.success('标题已确认，正在生成大纲...')
   } catch (error: any) {
@@ -974,6 +1089,9 @@ const handleConfirmOutline = async (
 ) => {
   confirmLoading.value = true
   try {
+    // 同「确认标题」：阶段 2 结束时连接已关闭，先重连才能收到阶段 3 的推送
+    createProgressSource(taskId.value)
+
     await confirmOutline({
       taskId: taskId.value,
       outline: outlineData,
@@ -983,6 +1101,9 @@ const handleConfirmOutline = async (
     outlineRaw.value = JSON.stringify({ sections: outlineData })
     // 以用户编辑后的版本为准，否则完成态导出用的还是 AI 最初生成的大纲
     article.value.outline = outlineData
+
+    currentPhase.value = 'CONTENT_GENERATING'
+    isCreating.value = true
 
     message.success('大纲已确认，正在生成正文...')
   } catch (error: any) {
@@ -1057,6 +1178,10 @@ const resetCreate = () => {
   outline.value = []
   confirmLoading.value = false
   taskId.value = ''
+  // 同步清掉地址栏里的 taskId，否则刷新后恢复逻辑又会被拉回上一个任务
+  const nextQuery = { ...route.query }
+  delete nextQuery.taskId
+  void router.replace({ query: nextQuery })
   currentStep.value = 0
   isCreating.value = false
   isCompleted.value = false
@@ -1076,6 +1201,11 @@ onMounted(() => {
   const queryTopic = route.query.topic
   if (typeof queryTopic === 'string' && queryTopic.trim()) {
     topic.value = queryTopic.trim()
+  }
+  // 支持从地址栏恢复：刷新页面、或从列表页「继续编辑」带 taskId 进入
+  const resumeTaskId = route.query.taskId
+  if (typeof resumeTaskId === 'string' && resumeTaskId.trim()) {
+    void resumeFromTaskId(resumeTaskId.trim())
   }
 })
 

@@ -10,6 +10,7 @@ import com.mypj.aipassagecreator.exception.ThrowUtils;
 import com.mypj.aipassagecreator.manager.SseEmitterManager;
 import com.mypj.aipassagecreator.model.dto.article.*;
 import com.mypj.aipassagecreator.model.entity.User;
+import com.mypj.aipassagecreator.model.enums.ArticlePhaseEnum;
 import com.mypj.aipassagecreator.model.enums.ArticleStatusEnum;
 import com.mypj.aipassagecreator.model.enums.ArticleStyleEnum;
 import com.mypj.aipassagecreator.model.enums.SseMessageTypeEnum;
@@ -103,9 +104,50 @@ public class ArticleController {
         if (status != null && status.isTerminal()) {
             sendTerminalState(taskId, status, articleDetail.getErrorMessage());
             log.info("任务已是终态, 已补发消息并关闭连接, taskId={}, status={}", taskId, status.getValue());
+        } else {
+            // 中间阶段（等待用户选择标题 / 编辑大纲）：拉取当前快照补发。
+            // 这三阶段之间存在长时间的用户思考，SSE 连接可能早已超时断开，
+            // 前端刷新或从列表页重进时只能依靠该快照恢复界面。
+            sendPhaseSnapshot(taskId, articleDetail);
         }
 
         return emitter;
+    }
+
+    /**
+     * 中间阶段的快照补发。
+     * <p>
+     * 仅对「等待用户操作」的两个阶段补发：{@code TITLE_SELECTING} 与 {@code OUTLINE_EDITING}。
+     * 「生成中」阶段没有已完成的结果可补，前端应继续等待异步推送。
+     * <p>
+     * 消息类型与字段必须与 {@code ArticleAsyncService} 的推送完全一致，
+     * 这样前端 {@code handleSSEMessage} 无需区分「实时消息」与「补发消息」。
+     */
+    private void sendPhaseSnapshot(String taskId, ArticleVO detail) {
+        ArticlePhaseEnum phase = ArticlePhaseEnum.getByValue(detail.getPhase());
+        if (phase == null) {
+            return;
+        }
+
+        Map<String, Object> payload = new HashMap<>();
+        switch (phase) {
+            case TITLE_SELECTING -> {
+                payload.put("type", SseMessageTypeEnum.TITLES_GENERATED.getValue());
+                payload.put("titleOptions", detail.getTitleOptions());
+            }
+            case OUTLINE_EDITING -> {
+                payload.put("type", SseMessageTypeEnum.OUTLINE_GENERATED.getValue());
+                payload.put("outline", detail.getOutline());
+            }
+            default -> {
+                // PENDING / *_GENERATING：没有可补的完成态数据，等待真实推送即可
+                return;
+            }
+        }
+
+        sseEmitterManager.send(taskId, GsonUtils.toJson(payload));
+        sseEmitterManager.complete(taskId);
+        log.info("阶段快照已补发并关闭连接, taskId={}, phase={}", taskId, phase.getValue());
     }
 
     /**

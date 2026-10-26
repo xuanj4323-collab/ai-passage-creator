@@ -60,6 +60,24 @@ public class ArticleVO implements Serializable {
     private String subTitle;
 
     /**
+     * 当前阶段（PENDING/TITLE_GENERATING/TITLE_SELECTING/OUTLINE_GENERATING/OUTLINE_EDITING/CONTENT_GENERATING）
+     * <p>
+     * 前端刷新或从列表页重新进入时依赖该字段恢复到正确阶段；
+     * 实时 SSE 消息无法回溯，必须由详情接口提供状态快照。
+     */
+    private String phase;
+
+    /**
+     * 标题方案列表（仅 TITLE_SELECTING 阶段有意义）
+     */
+    private List<TitleOption> titleOptions;
+
+    /**
+     * 用户补充描述（确认标题时填写，会拼接进后续 Prompt）
+     */
+    private String userDescription;
+
+    /**
      * 大纲
      */
     private List<OutlineItem> outline;
@@ -93,6 +111,15 @@ public class ArticleVO implements Serializable {
      * 完成时间
      */
     private LocalDateTime completedTime;
+
+    /**
+     * 标题方案项
+     */
+    @Data
+    public static class TitleOption implements Serializable {
+        private String mainTitle;
+        private String subTitle;
+    }
 
     /**
      * 大纲项
@@ -137,6 +164,12 @@ public class ArticleVO implements Serializable {
         if (article.getImages() != null) {
             articleVO.setImages(GSON.fromJson(article.getImages(),
                     new TypeToken<List<ImageItem>>(){}.getType()));
+        }
+        // 标题方案在实体内是 JSON 字符串，VO 需要解析成结构化列表，
+        // 否则前端恢复「选标题」阶段时拿不到候选方案
+        if (article.getTitleOptions() != null) {
+            articleVO.setTitleOptions(GSON.fromJson(article.getTitleOptions(),
+                    new TypeToken<List<TitleOption>>(){}.getType()));
         }
 
         return articleVO;

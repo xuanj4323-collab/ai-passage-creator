@@ -125,13 +125,14 @@ public interface ArticleService extends IService<Article> {
     void confirmOutline(String taskId, List<ArticleState.OutlineSection> outline, User loginUser);
 
     /**
-     * 更新阶段
+     * 更新阶段（条件更新：仅当当前阶段等于 fromPhase 时才推进）
      *
-     * @param taskId 任务ID
+     * @param taskId    任务ID
      * @param fromPhase 原阶段枚举
-     * @param toPhase  新阶段枚举
+     * @param toPhase   新阶段枚举
+     * @return 是否推进成功；false 表示当前阶段不匹配（已被其他流程推进）
      */
-    void updatePhase(String taskId, ArticlePhaseEnum fromPhase, ArticlePhaseEnum toPhase);
+    boolean updatePhase(String taskId, ArticlePhaseEnum fromPhase, ArticlePhaseEnum toPhase);
 
     /**
      * 保存标题方案

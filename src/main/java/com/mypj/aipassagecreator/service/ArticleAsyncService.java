@@ -61,7 +61,13 @@ public class ArticleAsyncService {
                         Map.of("message", "任务已被处理或状态异常，请刷新页面查看结果"));
                 return;
             }
-            articleService.updatePhase(taskId, ArticlePhaseEnum.PENDING, ArticlePhaseEnum.TITLE_GENERATING);
+            boolean phaseStarted = articleService.updatePhase(taskId,
+                    ArticlePhaseEnum.PENDING, ArticlePhaseEnum.TITLE_GENERATING);
+            if (!phaseStarted) {
+                // status 已确认由本次执行推进，phase 不匹配属于异常（被其他流程改写），
+                // 记录但不中断：继续生成不会损害数据，中断反而让用户白等
+                log.warn("阶段推进到 TITLE_GENERATING 未生效, taskId={}", taskId);
+            }
 
             // 创建状态对象
             ArticleState state = new ArticleState();
@@ -78,12 +84,21 @@ public class ArticleAsyncService {
             articleService.saveTitleOptions(taskId, state.getTitleOptions());
 
             // 更新阶段为等待选择标题
-            articleService.updatePhase(taskId, ArticlePhaseEnum.TITLE_GENERATING, ArticlePhaseEnum.TITLE_SELECTING);
+            boolean toSelecting = articleService.updatePhase(taskId,
+                    ArticlePhaseEnum.TITLE_GENERATING, ArticlePhaseEnum.TITLE_SELECTING);
+            if (!toSelecting) {
+                log.warn("阶段推进到 TITLE_SELECTING 未生效, taskId={}", taskId);
+            }
 
             // 推送标题方案生成完成消息
             Map<String, Object> data = new HashMap<>();
             data.put("titleOptions", state.getTitleOptions());
             sendSseMessage(taskId, SseMessageTypeEnum.TITLES_GENERATED, data);
+
+            // 阶段结束即释放连接：用户在「选标题」阶段可能停留任意久，
+            // 让连接跨越这段思考期只会等来 30 分钟超时，届时阶段 2 的推送将无人接收。
+            // 前端收到本消息后重新建连（见 confirm-title 处理）。
+            sseEmitterManager.complete(taskId);
 
             log.info("阶段1异步任务完成, taskId={}", taskId);
         } catch (Exception e) {
@@ -131,12 +146,19 @@ public class ArticleAsyncService {
             articleService.updateById(articleToUpdate);
 
             // 更新阶段为等待编辑大纲
-            articleService.updatePhase(taskId, ArticlePhaseEnum.OUTLINE_GENERATING, ArticlePhaseEnum.OUTLINE_EDITING);
+            boolean toEditing = articleService.updatePhase(taskId,
+                    ArticlePhaseEnum.OUTLINE_GENERATING, ArticlePhaseEnum.OUTLINE_EDITING);
+            if (!toEditing) {
+                log.warn("阶段推进到 OUTLINE_EDITING 未生效, taskId={}", taskId);
+            }
 
             // 推送大纲生成完成消息
             Map<String, Object> data = new HashMap<>();
             data.put("outline", state.getOutline().getSections());
             sendSseMessage(taskId, SseMessageTypeEnum.OUTLINE_GENERATED, data);
+
+            // 同阶段 1：用户编辑大纲可能耗时很久，主动释放连接避免等到超时
+            sseEmitterManager.complete(taskId);
 
             log.info("阶段2异步任务完成, taskId={}", taskId);
         } catch (Exception e) {
