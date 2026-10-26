@@ -45,9 +45,18 @@ public class AuthInterceptor {
         if (userRoleEnum == null) {
             throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
         }
-        // 要求必须有管理员权限，但当前用户没有
-        if (UserRoleEnum.ADMIN.equals(mustRoleEnum) && !UserRoleEnum.ADMIN.equals(userRoleEnum)) {
-            throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+        // 角色校验规则
+        // - ADMIN：仅管理员可访问
+        // - VIP：会员或管理员可访问（管理员拥有全部权限）
+        // - 其他（如 "user"）：只要求已登录，保持历史语义，避免影响既有接口
+        if (UserRoleEnum.ADMIN.equals(mustRoleEnum)) {
+            if (!UserRoleEnum.ADMIN.equals(userRoleEnum)) {
+                throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+            }
+        } else if (UserRoleEnum.VIP.equals(mustRoleEnum)) {
+            if (!UserRoleEnum.VIP.equals(userRoleEnum) && !UserRoleEnum.ADMIN.equals(userRoleEnum)) {
+                throw new BusinessException(ErrorCode.NO_AUTH_ERROR);
+            }
         }
         // 通过权限校验，放行
         return joinPoint.proceed();

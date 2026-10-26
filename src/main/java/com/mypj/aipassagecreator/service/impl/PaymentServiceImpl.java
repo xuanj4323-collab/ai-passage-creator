@@ -24,7 +24,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +37,6 @@ import java.util.Map;
 public class PaymentServiceImpl implements PaymentService {
 
     private static final String CURRENCY_USD = "usd";
-    private static final long CENTS_MULTIPLIER = 100L;
 
     @Resource
     private StripeConfig stripeConfig;
@@ -78,10 +76,28 @@ public class PaymentServiceImpl implements PaymentService {
 
         String paymentIntentId = session.getPaymentIntent();
 
+        // ===== 业务校验：Webhook 是外部输入，验签只保证来源，不保证金额/产品正确 =====
+        String productTypeValue = metadata.get("productType");
+        ProductTypeEnum productType = ProductTypeEnum.getByValue(productTypeValue);
+        if (productType == null) {
+            log.error("支付会话产品类型无效, sessionId={}, productType={}", sessionId, productTypeValue);
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "支付会话产品类型无效");
+        }
+
+        long expectedCents = productType.getPrice().movePointRight(2).longValueExact();
+        Long actualCents = session.getAmountTotal();
+        if (actualCents == null || actualCents != expectedCents) {
+            log.error("支付金额与订单不一致, sessionId={}, expected={}, actual={}",
+                    sessionId, expectedCents, actualCents);
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "支付金额与订单不一致");
+        }
+
         PaymentRecord record = findPaymentRecordBySessionId(sessionId);
         if (record == null) {
-            log.warn("支付记录不存在, sessionId={}", sessionId);
-            return;
+            // 不能静默返回 success：否则 Stripe 不再重试，用户付了钱却永远开不了会员。
+            // 抛异常让 Controller 返回 error，Stripe 会按重试策略再次投递。
+            log.error("支付记录缺失，无法开通会员, sessionId={}, userId={}", sessionId, userId);
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "支付记录缺失，请稍后重试");
         }
 
         // 幂等性检查
@@ -171,7 +187,9 @@ public class PaymentServiceImpl implements PaymentService {
      * 创建 Stripe 支付会话
      */
     private Session createStripeSession(Long userId, ProductTypeEnum productType) throws StripeException {
-        long amountInCents = productType.getPrice().multiply(new BigDecimal(CENTS_MULTIPLIER)).longValue();
+        // movePointRight + longValueExact：精度非法时直接抛异常，
+        // 避免 multiply().longValue() 静默截断小数
+        long amountInCents = productType.getPrice().movePointRight(2).longValueExact();
 
         SessionCreateParams params = SessionCreateParams.builder()
                 .setMode(SessionCreateParams.Mode.PAYMENT)
@@ -219,7 +237,10 @@ public class PaymentServiceImpl implements PaymentService {
                 .productType(productType.getValue())
                 .description(productType.getDescription())
                 .build();
-        paymentRecordMapper.insert(record);
+        // 必须用 insertSelective：insert(entity) 会把未赋值的 createTime 以 NULL 写入，
+        // 覆盖掉列的 DEFAULT CURRENT_TIMESTAMP，导致支付记录时间全为空、
+        // 以及 findLatestSuccessfulPayment 的 orderBy createTime 失效
+        paymentRecordMapper.insertSelective(record);
     }
 
     /**
@@ -291,13 +312,11 @@ public class PaymentServiceImpl implements PaymentService {
 
     /**
      * 撤销用户 VIP 身份
+     * <p>
+     * 必须用自定义 SQL：{@code userMapper.update(entity)} 默认忽略 null 字段，
+     * 无法把 vipTime 清空，会留下「角色是 user 但 vipTime 有值」的不一致数据。
      */
     private void revokeVipStatus(Long userId) {
-        User updateUser = new User();
-        updateUser.setId(userId);
-        updateUser.setVipTime(null);
-        updateUser.setUserRole(UserConstant.DEFAULT_ROLE);
-        updateUser.setQuota(UserConstant.DEFAULT_QUOTA);
-        userMapper.update(updateUser);
+        userMapper.revokeVip(userId, UserConstant.DEFAULT_ROLE, UserConstant.DEFAULT_QUOTA);
     }
 }
