@@ -146,8 +146,9 @@ public class ArticleController {
         }
 
         sseEmitterManager.send(taskId, GsonUtils.toJson(payload));
-        sseEmitterManager.complete(taskId);
-        log.info("阶段快照已补发并关闭连接, taskId={}, phase={}", taskId, phase.getValue());
+        // 不主动 close：服务端关闭会被浏览器 EventSource 判定为异常断开并触发 onerror，
+        // 客户端识别到终态消息后会自行 close()
+        log.info("阶段快照已补发, taskId={}, phase={}", taskId, phase.getValue());
     }
 
     /**
@@ -253,7 +254,7 @@ public class ArticleController {
                     ? errorMessage : "任务已失败");
         }
         sseEmitterManager.send(taskId, GsonUtils.toJson(payload));
-        sseEmitterManager.complete(taskId);
+        // 同上：由客户端 close()
     }
 
     /**

@@ -41,22 +41,25 @@ public class SseEmitterManager {
 
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
 
+        // 三个回调都用 remove(key, value) 而非 remove(key)：
+        // 旧连接的回调可能在「新连接已 put 之后」才异步执行，
+        // 若不带值比较就会把刚建好的新 emitter 一起删掉，导致后续推送全部丢失。
         // 设置超时回调
         emitter.onTimeout(() -> {
             log.warn("SSE 连接超时, taskId={}", taskId);
-            emitterMap.remove(taskId);
+            emitterMap.remove(taskId, emitter);
         });
 
         // 设置完成回调
         emitter.onCompletion(() -> {
             log.info("SSE 连接完成, taskId={}", taskId);
-            emitterMap.remove(taskId);
+            emitterMap.remove(taskId, emitter);
         });
 
         // 设置错误回调
         emitter.onError((e) -> {
             log.error("SSE 连接错误, taskId={}", taskId, e);
-            emitterMap.remove(taskId);
+            emitterMap.remove(taskId, emitter);
         });
 
         emitterMap.put(taskId, emitter);

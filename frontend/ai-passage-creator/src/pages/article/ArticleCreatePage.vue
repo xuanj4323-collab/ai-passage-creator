@@ -82,16 +82,27 @@
               <div class="image-methods-section">
                 <div class="section-header">
                   <span class="section-title">配图方式</span>
-                  <span class="section-tip">（不选择表示支持所有方式）</span>
+                  <span class="section-tip">
+                    （不选择表示支持所有方式<template v-if="!canUsePremiumImages"
+                      >，带 VIP 标记的方式需开通会员</template
+                    >）
+                  </span>
                 </div>
                 <a-checkbox-group v-model:value="selectedImageMethods" class="methods-group">
                   <a-checkbox
                     v-for="method in IMAGE_METHOD_OPTIONS"
                     :key="method.value"
                     :value="method.value"
-                    :title="method.description"
+                    :title="
+                      isImageMethodDisabled(method)
+                        ? `「${method.label}」为会员专属功能`
+                        : method.description
+                    "
+                    :disabled="isImageMethodDisabled(method)"
                   >
                     {{ method.label }}
+                    <!-- 会员专属标识：普通用户可见但不可选，避免「有功能却找不到入口」的困惑 -->
+                    <span v-if="method.vipOnly" class="vip-method-mark">VIP</span>
                   </a-checkbox>
                 </a-checkbox-group>
               </div>
@@ -396,7 +407,7 @@
  *
  * @author ai-passage-creator
  */
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { message } from 'ant-design-vue'
 import {
@@ -418,13 +429,17 @@ import { confirmOutline, confirmTitle, createArticle, getArticle } from '@/api/a
 import { openSse, type SseConnection } from '@/utils/sse'
 import { markdownToHtml } from '@/utils/markdown'
 import request from '@/request'
+import { useLoginUserStore } from '@/stores/loginUser'
 import {
   ARTICLE_STYLE_OPTIONS,
+  BASIC_IMAGE_METHOD_VALUES,
   buildArticleMarkdown,
   copyText,
   downloadMarkdown,
   getImageMethodText,
   IMAGE_METHOD_OPTIONS,
+  isVipOnlyImageMethod,
+  type ImageMethodOption,
 } from './articleHelpers'
 import TitleSelectingStage from './components/TitleSelectingStage.vue'
 import OutlineEditingStage from './components/OutlineEditingStage.vue'
@@ -529,6 +544,39 @@ const errorMessage = ref('')
 
 /** 配额开关：后续接入 VIP 后改为真实接口返回值即可，模板无需改动 */
 const hasQuota = ref(true)
+
+// ==================== 会员配图权限 ====================
+
+const loginUserStore = useLoginUserStore()
+
+/** 是否具备高级配图权限：vip 与 admin 可用 AI 生图 / SVG 示意图 */
+const canUsePremiumImages = computed(() => {
+  const role = loginUserStore.loginUser.userRole
+  return role === 'vip' || role === 'admin'
+})
+
+/** 某个配图方式当前是否被禁用（会员专属且当前身份不够） */
+const isImageMethodDisabled = (method: ImageMethodOption): boolean =>
+  Boolean(method.vipOnly) && !canUsePremiumImages.value
+
+/**
+ * 身份变化后清理已选中但已不可用的配图方式
+ *
+ * 例如会员被撤销、或退出登录后仍停留在本页，之前勾选的会员专属方式必须移除，
+ * 否则提交时会把当前身份不该用的参数带给后端。
+ */
+watch(canUsePremiumImages, (allowed) => {
+  if (allowed) {
+    return
+  }
+  const before = selectedImageMethods.value.length
+  selectedImageMethods.value = selectedImageMethods.value.filter(
+    (value) => !isVipOnlyImageMethod(value),
+  )
+  if (selectedImageMethods.value.length !== before) {
+    message.info('「AI 生图」与「SVG 示意图」为会员专属，已从当前选择中移除')
+  }
+})
 
 /** 大纲流式原始字符串（后端分块推送的 JSON 片段） */
 const outlineRaw = ref('')
@@ -690,6 +738,10 @@ const handleContentScroll = () => {
  */
 const PHASE_END_MESSAGES = ['TITLES_GENERATED', 'OUTLINE_GENERATED']
 
+/** SSE 异常后的自动恢复次数，避免服务端长期不可用时无限重连 */
+let sseRetryCount = 0
+const MAX_SSE_RETRY = 1
+
 /**
  * 建立进度 SSE 连接
  *
@@ -718,12 +770,13 @@ const createProgressSource = (id: string) => {
     onMessage: handleSSEMessage,
     onError: () => {
       // 能走到这里说明不是终态后的正常余波（那种已被 openSse 吞掉），而是真的断了。
-      // 只有在创作中才提示，避免用户已经离开这一步还被弹窗打扰。
+      // 但先别急着报错：先用详情接口核对服务端真实状态。
+      // 常见情况是「最后一条消息在传输途中断开」，此时阶段其实已经推进，
+      // 恢复界面比弹一个错误提示有用得多。
       if (!isCreating.value) {
         return
       }
-      isCreating.value = false
-      message.error('创作进度连接中断，可刷新页面查看结果')
+      void recoverFromSseError()
     },
     onClose: () => {
       sseConnection = null
@@ -733,6 +786,8 @@ const createProgressSource = (id: string) => {
 
 /** 处理 SSE 消息 */
 const handleSSEMessage = (msg: ProgressMessage) => {
+  // 能收到消息说明连接是通的，重置失败计数，允许下次异常时再自动恢复
+  sseRetryCount = 0
   switch (msg.type) {
     case 'AGENT1_COMPLETE': {
       // 标题方案生成完成（具体方案由随后的 TITLES_GENERATED 下发）
@@ -952,6 +1007,43 @@ const restoreFromDetail = (detail: API.ArticleVO) => {
   }
 }
 
+/**
+ * SSE 异常后的兜底恢复
+ *
+ * 断线时服务端可能已经推进了阶段（只是最后一条消息没送达），
+ * 因此以详情接口为准重建界面；若确认仍在生成中，则重连一次继续接收。
+ */
+const recoverFromSseError = async () => {
+  if (!taskId.value) {
+    isCreating.value = false
+    return
+  }
+  if (sseRetryCount >= MAX_SSE_RETRY) {
+    isCreating.value = false
+    message.error('创作进度连接中断，可刷新页面查看结果')
+    return
+  }
+  sseRetryCount += 1
+
+  try {
+    const res = await getArticle({ taskId: taskId.value })
+    const detail = res.data?.data
+    if (detail) {
+      restoreFromDetail(detail)
+      // 仍在生成中：重连继续接收（收到任意消息后计数会被重置）
+      if (currentPhase.value.endsWith('_GENERATING')) {
+        createProgressSource(taskId.value)
+      }
+      return
+    }
+  } catch (error) {
+    console.error('SSE 异常后恢复失败:', error)
+  }
+
+  isCreating.value = false
+  message.error('创作进度连接中断，可刷新页面查看结果')
+}
+
 /** 通过 taskId 恢复创作现场（刷新页面 / 从列表页「继续编辑」进入） */
 const resumeFromTaskId = async (id: string) => {
   taskId.value = id
@@ -1017,13 +1109,26 @@ const startCreate = async () => {
   autoFollow.value = true
 
   try {
+    // 只提交当前身份可用的配图方式，防止身份变化或异常状态绕过 UI 上的禁用
+    const usableMethods = selectedImageMethods.value.filter((value) => {
+      const method = IMAGE_METHOD_OPTIONS.find((item) => item.value === value)
+      return method ? !isImageMethodDisabled(method) : false
+    })
+
+    // 普通用户必须显式限定为基础方式：
+    // 后端约定「enabledImageMethods 为空即支持全部方式」，什么都不传会把会员专属方式也放进去
+    let enabledImageMethods: string[] | undefined =
+      usableMethods.length > 0 ? usableMethods : undefined
+    if (!canUsePremiumImages.value && usableMethods.length === 0) {
+      enabledImageMethods = BASIC_IMAGE_METHOD_VALUES
+    }
+
     // 创建任务，返回 BaseResponse<String>，taskId 在 data.data 中
-    // style / enabledImageMethods 为空时传 undefined，后端按「默认风格 / 支持全部方式」处理
+    // style 为空时传 undefined，后端按「默认风格」处理
     const res = await createArticle({
       topic: trimmed,
       style: selectedStyle.value || undefined,
-      enabledImageMethods:
-        selectedImageMethods.value.length > 0 ? selectedImageMethods.value : undefined,
+      enabledImageMethods,
     })
     const newTaskId = res.data?.data
     if (!newTaskId) {
@@ -1058,9 +1163,6 @@ const handleConfirmTitle = async (data: {
 }) => {
   confirmLoading.value = true
   try {
-    // 先重连再触发阶段 2：不重连的话服务端推送时会找不到 emitter，消息被静默丢弃
-    createProgressSource(taskId.value)
-
     await confirmTitle({
       taskId: taskId.value,
       selectedMainTitle: data.mainTitle,
@@ -1074,6 +1176,11 @@ const handleConfirmTitle = async (data: {
 
     currentPhase.value = 'OUTLINE_GENERATING'
     isCreating.value = true
+
+    // 必须「先推进阶段、后建连」：
+    // 若先建连，getProgress 读到的 phase 仍是 TITLE_SELECTING，
+    // 会补发一条 TITLES_GENERATED，前端刚收到就 close，反而收不到阶段 2 的推送
+    createProgressSource(taskId.value)
 
     message.success('标题已确认，正在生成大纲...')
   } catch (error: any) {
@@ -1089,9 +1196,6 @@ const handleConfirmOutline = async (
 ) => {
   confirmLoading.value = true
   try {
-    // 同「确认标题」：阶段 2 结束时连接已关闭，先重连才能收到阶段 3 的推送
-    createProgressSource(taskId.value)
-
     await confirmOutline({
       taskId: taskId.value,
       outline: outlineData,
@@ -1104,6 +1208,9 @@ const handleConfirmOutline = async (
 
     currentPhase.value = 'CONTENT_GENERATING'
     isCreating.value = true
+
+    // 同「确认标题」：先推进阶段再建连，避免补发旧阶段快照导致连接被立即关闭
+    createProgressSource(taskId.value)
 
     message.success('大纲已确认，正在生成正文...')
   } catch (error: any) {
@@ -1549,6 +1656,28 @@ $primary-dark: #764ba2;
       border-color: $primary;
       background: rgba(102, 126, 234, 0.08);
     }
+
+    /* 禁用态（会员专属方式对普通用户不可选） */
+    &.ant-checkbox-wrapper-disabled {
+      background: #fafafa;
+      opacity: 0.75;
+      cursor: not-allowed;
+    }
+  }
+
+  /* 会员专属标识 */
+  .vip-method-mark {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 0 5px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 16px;
+    color: #ad6800;
+    background: #fff7e6;
+    border: 1px solid #ffd591;
+    border-radius: 4px;
+    vertical-align: middle;
   }
 }
 

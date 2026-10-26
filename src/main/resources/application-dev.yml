@@ -5,3 +5,11 @@ mybatis-flex:
 logging:
   file:
     name: F:\JavaAI\ai-passage-creator\logs\myapp.log
+
+stripe:
+  api-key: sk_test_51UUl4QBHQiDD395ICvlProAQEzN36LqATezXGWxlvVQqz8Zqnu5RNvuzJFKdJwyqXpLluPsYrEq0mVW45P3P87xN00CNZikDuM
+  webhook-secret: whsec_7b50d2ed2c214238505f916cf527e670c9c2cd14271e02b2eeb00cce0a44c08a
+  success-url: http://localhost:5173/vip?success=true
+  cancel-url: http://localhost:5173/vip?cancelled=true
+
+  

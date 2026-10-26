@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import static com.mypj.aipassagecreator.constant.UserConstant.ADMIN_ROLE;
+import static com.mypj.aipassagecreator.constant.UserConstant.VIP_ROLE;
 
 /**
  * 配额服务实现
@@ -35,7 +36,7 @@ public class QuotaServiceImpl implements QuotaService {
     @Override
     public boolean hasQuota(User user) {
         // 管理员和 VIP 用户无限配额
-        if (isAdmin(user)) {
+        if (isAdmin(user) || isVip(user)) {
             return true;
         }
         // 从数据库查询最新配额，避免使用缓存的旧数据
@@ -51,7 +52,7 @@ public class QuotaServiceImpl implements QuotaService {
     @Transactional(rollbackFor = Exception.class)
     public void consumeQuota(User user) {
         // 管理员和 VIP 用户不消耗配额
-        if (isAdmin(user)) {
+        if (isAdmin(user) || isVip(user)) {
             return;
         }
 
@@ -70,7 +71,7 @@ public class QuotaServiceImpl implements QuotaService {
     @Transactional(rollbackFor = Exception.class)
     public void checkAndConsumeQuota(User user) {
         // 管理员和 VIP 用户跳过检查
-        if (isAdmin(user)) {
+        if (isAdmin(user) || isVip(user)) {
             return;
         }
 
@@ -91,7 +92,7 @@ public class QuotaServiceImpl implements QuotaService {
      */
     @Override
     public void refundQuota(User user) {
-        if (isAdmin(user)){
+        if (isAdmin(user) || isVip(user)){
             log.info("管理员无需退费, userId={}", user.getId());
             return;
         }
@@ -107,6 +108,9 @@ public class QuotaServiceImpl implements QuotaService {
         return ADMIN_ROLE.equals(user.getUserRole());
     }
 
+    private boolean isVip(User user) {
+        return VIP_ROLE.equals(user.getUserRole());
+    }
 
 }
 

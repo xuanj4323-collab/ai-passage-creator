@@ -20,6 +20,7 @@ public class LoginUserVO implements Serializable {
     private String userAvatar;
     private String userProfile;
     private String userRole;
+    private LocalDateTime vipTime;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
 }

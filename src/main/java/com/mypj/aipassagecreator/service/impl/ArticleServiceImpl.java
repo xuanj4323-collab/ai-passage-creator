@@ -32,10 +32,12 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static com.mypj.aipassagecreator.constant.UserConstant.ADMIN_ROLE;
+import static com.mypj.aipassagecreator.constant.UserConstant.VIP_ROLE;
 
 @Service
 @Slf4j
 public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> implements ArticleService {
+
 
     @Resource
     private QuotaService quotaService;
@@ -49,6 +51,12 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
 
     @Override
     public String createArticleTask(String topic, String style, List<String> enabledImageMethods, User loginUser) {
+        // 处理配图方式：如果用户未选择，给普通用户设置默认的非 VIP 方式
+        List<String> finalImageMethods = processImageMethods(enabledImageMethods, loginUser);
+
+        // 校验配图方式权限（普通用户不能使用 QWEN_IMAGE 和 SVG_DIAGRAM）
+        validateImageMethods(finalImageMethods, loginUser);
+
         // 获取已注册的所有图片生成方法
         List<String> registeredMethods = imageServiceStrategy.getRegisteredMethods().stream().map(ImageMethodEnum::getValue).toList();
 
@@ -61,7 +69,8 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         article.setUserId(loginUser.getId());
         article.setTopic(topic);
         article.setStyle(style);
-        article.setEnabledImageMethods(enabledImageMethods == null ? GsonUtils.toJson(registeredMethods) : GsonUtils.toJson(enabledImageMethods));
+        article.setEnabledImageMethods(enabledImageMethods != null && !enabledImageMethods.isEmpty()
+                ? GsonUtils.toJson(enabledImageMethods) : GsonUtils.toJson(registeredMethods));
         article.setStatus(ArticleStatusEnum.PENDING.getValue());
         article.setCreateTime(LocalDateTime.now());
 
@@ -328,6 +337,9 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         ThrowUtils.throwIf(currentPhase != ArticlePhaseEnum.OUTLINE_EDITING,
                 ErrorCode.OPERATION_ERROR, "当前阶段不允许此操作");
 
+        // 校验用户权限：仅限 VIP 会员能够修改大纲
+        ThrowUtils.throwIf(!isVipOrAdmin(loginUser), ErrorCode.NO_AUTH_ERROR, "当前功能仅限 VIP 会员使用");
+
         // 获取当前大纲
         List<ArticleState.OutlineSection> currentOutline = GsonUtils.fromJson(
                 article.getOutline(),
@@ -348,6 +360,62 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
 
         log.info("AI修改大纲完成, taskId={}, sectionsCount={}", taskId, modifiedOutline.size());
         return modifiedOutline;
+    }
+
+    /**
+     * 处理配图方式
+     * 如果用户未选择，给普通用户设置默认的非 VIP 方式，VIP 用户不限制
+     */
+    private List<String> processImageMethods(List<String> enabledImageMethods, User loginUser) {
+        // 如果用户已选择，直接返回
+        if (enabledImageMethods != null && !enabledImageMethods.isEmpty()) {
+            return enabledImageMethods;
+        }
+
+        // VIP 和管理员：不限制，返回 null 表示支持所有方式
+        if (isVipOrAdmin(loginUser)) {
+            return null;
+        }
+
+        // 普通用户：返回默认的非 VIP 方式
+        return List.of(
+                ImageMethodEnum.UNSPLASH.getValue(),
+                ImageMethodEnum.MERMAID.getValue(),
+                ImageMethodEnum.ICONIFY.getValue(),
+                ImageMethodEnum.EMOJI_PACK.getValue()
+        );
+    }
+
+    /**
+     * 校验配图方式权限
+     * 普通用户不能使用 QWEN_IMAGE 和 SVG_DIAGRAM
+     */
+    private void validateImageMethods(List<String> enabledImageMethods, User loginUser) {
+        if (enabledImageMethods == null || enabledImageMethods.isEmpty()) {
+            return;
+        }
+
+        // VIP 和管理员无限制
+        if (isVipOrAdmin(loginUser)) {
+            return;
+        }
+
+        // 普通用户限制
+        for (String method : enabledImageMethods) {
+            if (ImageMethodEnum.QWEN_IMAGE.getValue().equals(method) ||
+                    ImageMethodEnum.SVG_DIAGRAM.getValue().equals(method)) {
+                throw new BusinessException(ErrorCode.NO_AUTH_ERROR,
+                        "高级配图功能（AI 生图、SVG 图表）仅限 VIP 会员使用");
+            }
+        }
+    }
+
+    /**
+     * 判断是否为 VIP 或管理员
+     */
+    private boolean isVipOrAdmin(User user) {
+        return ADMIN_ROLE.equals(user.getUserRole()) ||
+                VIP_ROLE.equals(user.getUserRole());
     }
 
 

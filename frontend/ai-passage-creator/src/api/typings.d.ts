@@ -38,9 +38,7 @@ declare namespace API {
     topic?: string;
     mainTitle?: string;
     subTitle?: string;
-    /** 当前阶段：PENDING/TITLE_GENERATING/TITLE_SELECTING/OUTLINE_GENERATING/OUTLINE_EDITING/CONTENT_GENERATING */
     phase?: string;
-    /** 标题方案列表（TITLE_SELECTING 阶段用于恢复界面） */
     titleOptions?: TitleOption[];
     userDescription?: string;
     outline?: OutlineItem[];
@@ -50,11 +48,6 @@ declare namespace API {
     errorMessage?: string;
     createTime?: string;
     completedTime?: string;
-  };
-
-  type TitleOption = {
-    mainTitle?: string;
-    subTitle?: string;
   };
 
   type BaseResponseArticleVO = {
@@ -72,6 +65,12 @@ declare namespace API {
   type BaseResponseListOutlineSection = {
     code?: number;
     data?: OutlineSection[];
+    message?: string;
+  };
+
+  type BaseResponseListPaymentRecord = {
+    code?: number;
+    data?: PaymentRecord[];
     message?: string;
   };
 
@@ -158,6 +157,7 @@ declare namespace API {
     userAvatar?: string;
     userProfile?: string;
     userRole?: string;
+    vipTime?: string;
     createTime?: string;
     updateTime?: string;
   };
@@ -192,8 +192,33 @@ declare namespace API {
     optimizeCountQuery?: boolean;
   };
 
+  type PaymentRecord = {
+    id?: number;
+    userId?: number;
+    stripeSessionId?: string;
+    stripePaymentIntentId?: string;
+    amount?: number;
+    currency?: string;
+    status?: string;
+    productType?: string;
+    description?: string;
+    refundTime?: string;
+    refundReason?: string;
+    createTime?: string;
+    updateTime?: string;
+  };
+
+  type refundParams = {
+    reason?: string;
+  };
+
   type SseEmitter = {
     timeout?: number;
+  };
+
+  type TitleOption = {
+    mainTitle?: string;
+    subTitle?: string;
   };
 
   type User = {
@@ -205,6 +230,7 @@ declare namespace API {
     userProfile?: string;
     userRole?: string;
     quota?: number;
+    vipTime?: string;
     editTime?: string;
     createTime?: string;
     updateTime?: string;

@@ -28,6 +28,11 @@ const router = createRouter({
       component: () => import('@/pages/article/ArticleDetailPage.vue'),
     },
     {
+      path: '/vip',
+      name: '会员中心',
+      component: () => import('@/pages/vip/VipPage.vue'),
+    },
+    {
       path: '/user/login',
       name: '用户登录',
       component: UserLoginPage,

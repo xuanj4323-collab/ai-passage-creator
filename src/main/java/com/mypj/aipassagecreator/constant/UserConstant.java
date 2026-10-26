@@ -23,5 +23,17 @@ public interface UserConstant {
      */
     String ADMIN_ROLE = "admin";
 
+    /**
+     * VIP 角色
+     */
+    String VIP_ROLE = "vip";
+
+    /**
+    *  用户默认额度
+    */
+    int DEFAULT_QUOTA = 5;
+
+
+
     // endregion
 }

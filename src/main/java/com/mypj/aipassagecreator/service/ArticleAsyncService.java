@@ -95,11 +95,10 @@ public class ArticleAsyncService {
             data.put("titleOptions", state.getTitleOptions());
             sendSseMessage(taskId, SseMessageTypeEnum.TITLES_GENERATED, data);
 
-            // 阶段结束即释放连接：用户在「选标题」阶段可能停留任意久，
-            // 让连接跨越这段思考期只会等来 30 分钟超时，届时阶段 2 的推送将无人接收。
-            // 前端收到本消息后重新建连（见 confirm-title 处理）。
-            sseEmitterManager.complete(taskId);
-
+            // 刻意不在这里调用 sseEmitterManager.complete()：
+            // 服务端主动关闭连接会让浏览器 EventSource 判定为「异常断开」并触发 onerror，
+            // 前端会误报「连接中断」；关闭过快还可能吞掉刚到的那条消息。
+            // 正确做法是发完消息即返回，由客户端识别终态消息后自行 close()。
             log.info("阶段1异步任务完成, taskId={}", taskId);
         } catch (Exception e) {
             log.error("阶段1异步任务失败, taskId={}", taskId, e);
@@ -157,9 +156,7 @@ public class ArticleAsyncService {
             data.put("outline", state.getOutline().getSections());
             sendSseMessage(taskId, SseMessageTypeEnum.OUTLINE_GENERATED, data);
 
-            // 同阶段 1：用户编辑大纲可能耗时很久，主动释放连接避免等到超时
-            sseEmitterManager.complete(taskId);
-
+            // 同上：不主动关闭，交给客户端识别终态后 close()
             log.info("阶段2异步任务完成, taskId={}", taskId);
         } catch (Exception e) {
             log.error("阶段2异步任务失败, taskId={}", taskId, e);
@@ -228,9 +225,7 @@ public class ArticleAsyncService {
             // 推送完成消息
             sendSseMessage(taskId, SseMessageTypeEnum.ALL_COMPLETE, Map.of("taskId", taskId));
 
-            // 完成 SSE 连接
-            sseEmitterManager.complete(taskId);
-
+            // 不主动关闭：由客户端收到 ALL_COMPLETE 后自行 close()
             log.info("阶段3异步任务完成, taskId={}", taskId);
         } catch (Exception e) {
             log.error("阶段3异步任务失败, taskId={}", taskId, e);
@@ -254,7 +249,7 @@ public class ArticleAsyncService {
             log.warn("任务已处于终态，跳过退款, taskId={}", taskId);
         }
         sendSseMessage(taskId, SseMessageTypeEnum.ERROR, Map.of("message", resolveErrorMessage(e)));
-        sseEmitterManager.complete(taskId);
+        // 不主动关闭：由客户端收到 ERROR 后自行 close()
     }
 
 

@@ -30,6 +30,8 @@ export interface ImageMethodOption {
   value: string
   label: string
   description: string
+  /** 仅会员（vip / admin）可用，普通用户不可选择 */
+  vipOnly?: boolean
 }
 
 /**
@@ -38,15 +40,41 @@ export interface ImageMethodOption {
  * 后端枚举里还有 PEXELS，但项目没有接入该图库（默认检索方式已改为 UNSPLASH），
  * 所以不暴露给用户——否则选了它也拿不到图，只会白白降级成 Picsum 随机图。
  * PICSUM 是后端兜底方案，同样不作为可选项。
+ *
+ * AI 生图与 SVG 示意图成本高，仅对会员开放。
  */
 export const IMAGE_METHOD_OPTIONS: ImageMethodOption[] = [
   { value: 'UNSPLASH', label: 'Unsplash', description: '真实场景、人物照片、自然风景' },
-  { value: 'QWEN_IMAGE', label: 'Qwen Image', description: '创意插画、艺术风格、文字渲染' },
+  {
+    value: 'QWEN_IMAGE',
+    label: 'Qwen Image',
+    description: '创意插画、艺术风格、文字渲染',
+    vipOnly: true,
+  },
   { value: 'MERMAID', label: 'Mermaid', description: '流程图、架构图、时序图' },
   { value: 'ICONIFY', label: 'Iconify', description: '图标、符号、小型装饰' },
   { value: 'EMOJI_PACK', label: '表情包', description: '搞笑、轻松幽默的配图' },
-  { value: 'SVG_DIAGRAM', label: 'SVG 示意图', description: '概念示意、逻辑关系展示' },
+  {
+    value: 'SVG_DIAGRAM',
+    label: 'SVG 示意图',
+    description: '概念示意、逻辑关系展示',
+    vipOnly: true,
+  },
 ]
+
+/**
+ * 基础配图方式（不含会员专属）
+ *
+ * 普通用户提交时必须显式限定为这些方式：后端约定「enabledImageMethods 为空即支持全部方式」，
+ * 若普通用户什么都不选就提交，AI 仍可能挑到会员专属方式，权限就形同虚设。
+ */
+export const BASIC_IMAGE_METHOD_VALUES: string[] = IMAGE_METHOD_OPTIONS.filter(
+  (item) => !item.vipOnly,
+).map((item) => item.value)
+
+/** 判断某个配图方式是否仅会员可用 */
+export const isVipOnlyImageMethod = (value: string): boolean =>
+  IMAGE_METHOD_OPTIONS.some((item) => item.value === value && item.vipOnly)
 
 /** 配图来源值 → 中文名（含未开放选择、但可能出现在历史数据里的降级方案） */
 const IMAGE_METHOD_TEXT: Record<string, string> = {

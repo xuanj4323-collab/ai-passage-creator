@@ -27,6 +27,11 @@
               <a-space>
                 <a-avatar :src="loginUserStore.loginUser.userAvatar" />
                 {{ loginUserStore.loginUser.userName ?? '无名' }}
+                <!-- 永久会员标识 -->
+                <a-tag v-if="loginUserStore.loginUser.userRole === 'vip'" color="gold">
+                  <CrownOutlined />
+                  VIP
+                </a-tag>
               </a-space>
               <template #overlay>
                 <a-menu>
@@ -53,7 +58,13 @@ import { useRouter } from 'vue-router'
 import { type MenuProps, message } from 'ant-design-vue'
 import { useLoginUserStore } from '@/stores/loginUser.ts'
 import { userLogout } from '@/api/userController.ts'
-import { LogoutOutlined, HomeOutlined, EditOutlined, UnorderedListOutlined } from '@ant-design/icons-vue'
+import {
+  CrownOutlined,
+  EditOutlined,
+  HomeOutlined,
+  LogoutOutlined,
+  UnorderedListOutlined,
+} from '@ant-design/icons-vue'
 
 const loginUserStore = useLoginUserStore()
 const router = useRouter()
@@ -83,6 +94,12 @@ const originItems = [
     icon: () => h(UnorderedListOutlined),
     label: '我的文章',
     title: '我的文章',
+  },
+  {
+    key: '/vip',
+    icon: () => h(CrownOutlined),
+    label: '会员中心',
+    title: '会员中心',
   },
   {
     key: '/admin/userManage',
