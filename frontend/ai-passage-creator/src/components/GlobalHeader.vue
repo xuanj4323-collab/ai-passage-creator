@@ -19,25 +19,15 @@
       <!-- 用户区 -->
       <div class="user-area">
         <template v-if="loginUserStore.loginUser.id">
-          <a-dropdown placement="bottomRight">
-            <button type="button" class="user-button">
-              <a-avatar :size="28" class="user-avatar">{{ avatarInitial }}</a-avatar>
-              <span class="user-name">{{ loginUserStore.loginUser.userName ?? '无名' }}</span>
-              <span v-if="loginUserStore.loginUser.userRole === 'vip'" class="vip-tag">VIP</span>
-            </button>
-            <template #overlay>
-              <a-menu>
-                <a-menu-item key="profile" @click="goProfile">
-                  <UserOutlined />
-                  个人中心
-                </a-menu-item>
-                <a-menu-item @click="doLogout">
-                  <LogoutOutlined />
-                  退出登录
-                </a-menu-item>
-              </a-menu>
-            </template>
-          </a-dropdown>
+          <!-- 头像与昵称直接进个人中心，不依赖下拉弹层的点击 -->
+          <RouterLink to="/user/profile" class="user-link" title="进入个人中心">
+            <a-avatar :size="28" class="user-avatar">{{ avatarInitial }}</a-avatar>
+            <span class="user-name">{{ loginUserStore.loginUser.userName ?? '无名' }}</span>
+            <span v-if="loginUserStore.loginUser.userRole === 'vip'" class="vip-tag">VIP</span>
+          </RouterLink>
+          <button type="button" class="logout-button" title="退出登录" @click="doLogout">
+            <LogoutOutlined />
+          </button>
         </template>
         <template v-else>
           <a-button type="primary" @click="goLogin">登录</a-button>
@@ -58,7 +48,6 @@ import {
   HomeOutlined,
   LogoutOutlined,
   UnorderedListOutlined,
-  UserOutlined,
 } from '@ant-design/icons-vue'
 
 const loginUserStore = useLoginUserStore()
@@ -142,11 +131,6 @@ const handleMenuClick: MenuProps['onClick'] = (e) => {
 // 去登录
 const goLogin = () => {
   router.push('/user/login')
-}
-
-// 去个人中心
-const goProfile = () => {
-  router.push('/user/profile')
 }
 
 // 退出登录
@@ -241,32 +225,54 @@ const doLogout = async () => {
 .user-area {
   display: flex;
   flex: none;
+  gap: 4px;
   align-items: center;
 }
 
-.user-button {
+.user-link {
   display: flex;
   gap: 8px;
   align-items: center;
   padding: 4px 10px 4px 4px;
-  font: inherit;
   color: var(--c-text-2);
+  text-decoration: none;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.user-link:hover {
+  color: var(--c-text-1);
+  background: var(--c-bg-soft);
+  border-color: var(--c-border);
+}
+
+/* 退出登录：低调的图标按钮，悬停才变红 */
+.logout-button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  color: var(--c-text-3);
   cursor: pointer;
   background: transparent;
   border: 1px solid transparent;
   border-radius: 999px;
   transition:
     background 0.16s ease,
-    border-color 0.16s ease;
+    color 0.16s ease;
 }
 
-.user-button:hover {
-  background: var(--c-bg-soft);
-  border-color: var(--c-border);
+.logout-button:hover {
+  color: var(--c-danger);
+  background: var(--c-danger-soft);
 }
 
 /* 默认头像的蓝色底与整体色调不搭，统一成中性灰 */
-.user-button :deep(.ant-avatar) {
+.user-area :deep(.ant-avatar) {
   background: var(--c-bg-soft);
   color: var(--c-text-2);
   font-size: 13px;
