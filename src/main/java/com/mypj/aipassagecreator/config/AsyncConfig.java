@@ -67,5 +67,31 @@ public class AsyncConfig {
         executor.initialize();
         return executor;
     }
+
+    /**
+     * 并行配图专用线程池
+     * <p>
+     * 图片生成是 IO 密集（网络请求，单张 10-30 秒），必须与 CPU 任务隔离。
+     * 不能使用 {@code CompletableFuture.runAsync} 的默认线程池
+     * （{@code ForkJoinPool.commonPool()}）：它被全应用的并行流共享，
+     * 一旦被网络等待占满，其他地方（包括框架内部）的并行流都会被拖住。
+     * <p>
+     * 容量按「配图方式类型数」设计：当前最多 6-7 种类型并行，
+     * 每种类型内部串行，因此 4-8 个线程足够。
+     */
+    @Bean(name = "imageExecutor")
+    public Executor imageExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(4);
+        executor.setMaxPoolSize(8);
+        executor.setQueueCapacity(50);
+        executor.setThreadNamePrefix("image-gen-");
+        // 队列满时退化为调用线程执行：宁可慢，也不要丢配图任务
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
+        executor.initialize();
+        return executor;
+    }
 }
 

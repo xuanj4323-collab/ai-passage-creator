@@ -13,11 +13,16 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import jakarta.annotation.Resource;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
@@ -31,6 +36,22 @@ import java.util.stream.Collectors;
 public class ParallelImageGenerator implements NodeAction {
 
     private final ImageGenerationTool imageGenerationTool;
+
+    /**
+     * 并行配图专用线程池。
+     * <p>
+     * 不能省略这个参数：{@code CompletableFuture.runAsync} 默认使用
+     * {@code ForkJoinPool.commonPool()}，会被全应用的并行流共享，
+     * 图片生成是 IO 密集（单张 10-30 秒），占满后其他并行任务全部阻塞。
+     */
+    @Resource(name = "imageExecutor")
+    private Executor imageExecutor;
+
+    /**
+     * 并行配图整体超时（秒）。
+     * 单张 10-30s，多类型并行、同类型串行，留足余量；超时后返回已完成的部分。
+     */
+    private static final long IMAGE_GENERATION_TIMEOUT_SECONDS = 180L;
 
     public static final String INPUT_IMAGE_REQUIREMENTS = "imageRequirements";
     public static final String OUTPUT_IMAGES = "images";
@@ -148,11 +169,22 @@ public class ParallelImageGenerator implements NodeAction {
                     }
 
                     log.info("完成处理 {} 类型的图片", imageSource);
-                }))
+                }, imageExecutor))
                 .toList();
 
-        // 等待所有任务完成
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        // 等待所有任务完成，带超时：单个类型卡死时不应拖住整个阶段
+        try {
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                    .get(IMAGE_GENERATION_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (TimeoutException e) {
+            log.error("并行配图超时（{}s），将返回已完成的部分", IMAGE_GENERATION_TIMEOUT_SECONDS);
+            futures.forEach(f -> f.cancel(true));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("并行配图被中断");
+        } catch (ExecutionException e) {
+            log.error("并行配图执行异常", e.getCause());
+        }
 
         return new ArrayList<>(allImages);
     }
