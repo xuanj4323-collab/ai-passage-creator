@@ -1,0 +1,680 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="a">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI Passage Creator · 样式模板预览</title>
+<style>
+  /* ============ 1. 设计令牌：三套主题共用同一套变量名 ============ */
+  :root {
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+      "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    --font-serif: "Noto Serif SC", "Songti SC", "SimSun", Georgia, serif;
+    --font-mono: "JetBrains Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+
+    --r-sm: 6px;
+    --r-md: 10px;
+    --r-lg: 14px;
+    --r-xl: 20px;
+
+    --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px;
+    --s-5: 24px; --s-6: 32px; --s-7: 48px; --s-8: 64px;
+  }
+
+  /* --- P1：纸墨 · 朱砂（暖纸底 + 墨黑主按钮 + 朱砂点缀） --- */
+  html[data-theme="a"] {
+    --bg: #f7f3ec;
+    --bg-soft: #efe8db;
+    --surface: #fffdf9;
+    --surface-2: #fbf7f0;
+    --border: #e3d9c8;
+    --border-strong: #cfc2ac;
+    --text-1: #211e1a;
+    --text-2: #5b5448;
+    --text-3: #9c9384;
+    --primary: #b23a2e;          /* 朱砂：链接、选中、强调 */
+    --primary-strong: #8f2b21;
+    --primary-soft: #f5e4e0;
+    --primary-contrast: #ffffff;
+    --ink: #23201b;              /* 主按钮：墨黑，不用彩色 */
+    --ink-hover: #3a352c;
+    --ink-contrast: #fdfaf3;
+    --accent: #9a6a2f;           /* VIP / 会员 */
+    --accent-soft: #f7ecd9;
+    --ok: #3f6b4f;      --ok-soft: #e9f1ea;
+    --info: #6b5b46;    --info-soft: #f2ece1;
+    --warn: #9a6a2f;    --warn-soft: #f7ecd9;
+    --danger: #a0362b;  --danger-soft: #f8e6e2;
+    --shadow-1: 0 1px 2px rgba(33, 30, 26, .06), 0 1px 3px rgba(33, 30, 26, .04);
+    --shadow-2: 0 8px 24px rgba(33, 30, 26, .09), 0 2px 6px rgba(33, 30, 26, .04);
+    --hero-bg: radial-gradient(1200px 320px at 12% -30%, #efe0d8 0%, transparent 60%),
+               radial-gradient(900px 300px at 88% -40%, #efe6d2 0%, transparent 55%);
+  }
+
+  /* --- P2：橄榄 · 油墨（灰绿底 + 墨黑主按钮 + 焦糖点缀） --- */
+  html[data-theme="b"] {
+    --bg: #f4f4ee;
+    --bg-soft: #eaeadf;
+    --surface: #fefefb;
+    --surface-2: #f8f8f2;
+    --border: #dcdccd;
+    --border-strong: #c6c6b3;
+    --text-1: #1b1e17;
+    --text-2: #4f5445;
+    --text-3: #929884;
+    --primary: #4d5b32;
+    --primary-strong: #3a4526;
+    --primary-soft: #e8ebdf;
+    --primary-contrast: #ffffff;
+    --ink: #20241c;
+    --ink-hover: #333a2c;
+    --ink-contrast: #fbfbf5;
+    --accent: #a67442;
+    --accent-soft: #f4eadf;
+    --ok: #40714f;      --ok-soft: #e7f0e8;
+    --info: #5f5847;    --info-soft: #efebe0;
+    --warn: #a67442;    --warn-soft: #f4eadf;
+    --danger: #9e3b32;  --danger-soft: #f6e7e4;
+    --shadow-1: 0 1px 2px rgba(27, 30, 23, .06), 0 1px 3px rgba(27, 30, 23, .04);
+    --shadow-2: 0 8px 24px rgba(27, 30, 23, .09), 0 2px 6px rgba(27, 30, 23, .04);
+    --hero-bg: radial-gradient(1200px 320px at 12% -30%, #e6e8d8 0%, transparent 60%),
+               radial-gradient(900px 300px at 88% -40%, #efe6d6 0%, transparent 55%);
+  }
+
+  /* --- P3：炭灰 · 焦糖（中性灰底 + 黑按钮 + 焦糖强调） --- */
+  html[data-theme="c"] {
+    --bg: #f4f4f1;
+    --bg-soft: #e9e9e4;
+    --surface: #ffffff;
+    --surface-2: #fafaf7;
+    --border: #dededa;
+    --border-strong: #c8c8c2;
+    --text-1: #1a1a19;
+    --text-2: #55554f;
+    --text-3: #97978f;
+    --primary: #8a6a4b;
+    --primary-strong: #6f5339;
+    --primary-soft: #f1e9e1;
+    --primary-contrast: #ffffff;
+    --ink: #1f1f1d;
+    --ink-hover: #343431;
+    --ink-contrast: #fbfbf8;
+    --accent: #a6763a;
+    --accent-soft: #f5ecdf;
+    --ok: #40714f;      --ok-soft: #e7f0e8;
+    --info: #635c4e;    --info-soft: #f0ece4;
+    --warn: #a6763a;    --warn-soft: #f5ecdf;
+    --danger: #a33f38;  --danger-soft: #f7e8e6;
+    --shadow-1: 0 1px 2px rgba(26, 26, 25, .06), 0 1px 3px rgba(26, 26, 25, .04);
+    --shadow-2: 0 8px 24px rgba(26, 26, 25, .08), 0 2px 6px rgba(26, 26, 25, .04);
+    --hero-bg: radial-gradient(1200px 320px at 12% -30%, #e9e9e3 0%, transparent 60%),
+               radial-gradient(900px 300px at 88% -40%, #f0e9dd 0%, transparent 55%);
+  }
+
+  /* ============ 2. 基础 ============ */
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text-1);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    transition: background .25s ease, color .25s ease;
+  }
+  h1, h2, h3, p, ol, ul, table { margin: 0; }
+  code, kbd { font-family: var(--font-mono); font-size: .86em; }
+
+  /* 顶栏：主题切换 */
+  .preview-bar {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; flex-wrap: wrap; gap: var(--s-3); align-items: center;
+    padding: var(--s-3) var(--s-5);
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .brand { display: flex; align-items: center; gap: var(--s-2); font-weight: 700; letter-spacing: .2px; }
+  .brand-mark {
+    width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
+    background: var(--primary); color: var(--primary-contrast); font-size: 13px; font-weight: 800;
+  }
+  .brand-sub { color: var(--text-3); font-size: 12px; font-weight: 500; }
+  .theme-switch { display: flex; gap: var(--s-1); margin-left: auto; padding: 3px; border-radius: 999px; background: var(--bg-soft); border: 1px solid var(--border); }
+  .theme-switch button {
+    border: 0; background: transparent; color: var(--text-2); cursor: pointer;
+    padding: 6px 14px; border-radius: 999px; font-size: 13px; font-family: inherit;
+    transition: all .18s ease;
+  }
+  .theme-switch button[aria-pressed="true"] { background: var(--surface); color: var(--text-1); box-shadow: var(--shadow-1); font-weight: 600; }
+
+  main { max-width: 1180px; margin: 0 auto; padding: var(--s-6) var(--s-5) var(--s-8); }
+  section { margin-bottom: var(--s-8); }
+  .sec-head { display: flex; align-items: baseline; gap: var(--s-3); margin-bottom: var(--s-4); }
+  .sec-head h2 { font-size: 18px; font-weight: 700; letter-spacing: .2px; }
+  .sec-head span { color: var(--text-3); font-size: 13px; }
+  .sec-head::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+
+  /* ============ 3. 色板 ============ */
+  .swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: var(--s-3); }
+  .swatch { border: 1px solid var(--border); border-radius: var(--r-md); overflow: hidden; background: var(--surface); }
+  .swatch-chip { height: 52px; }
+  .swatch-meta { padding: 8px 10px; }
+  .swatch-name { font-size: 12px; font-weight: 600; }
+  .swatch-hex { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
+
+  /* ============ 4. 排版阶梯 ============ */
+  .type-scale { display: grid; gap: var(--s-3); }
+  .type-row { display: flex; align-items: baseline; gap: var(--s-4); padding-bottom: var(--s-3); border-bottom: 1px dashed var(--border); }
+  .type-row:last-child { border-bottom: 0; }
+  .type-label { flex: 0 0 150px; font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
+  .t-hero { font-size: 40px; font-weight: 700; line-height: 1.2; letter-spacing: -.5px; }
+  .t-h1 { font-size: 26px; font-weight: 700; line-height: 1.3; }
+  .t-h2 { font-size: 18px; font-weight: 600; }
+  .t-body { font-size: 15px; color: var(--text-1); }
+  .t-muted { font-size: 13px; color: var(--text-2); }
+  .t-caption { font-size: 12px; color: var(--text-3); }
+  .serif { font-family: var(--font-serif); }
+
+  /* ============ 5. 按钮 ============ */
+  .row { display: flex; flex-wrap: wrap; gap: var(--s-3); align-items: center; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 36px; padding: 0 16px; border-radius: var(--r-md);
+    border: 1px solid transparent; background: transparent; color: var(--text-1);
+    font-family: inherit; font-size: 14px; font-weight: 500; cursor: pointer;
+    transition: background .16s ease, border-color .16s ease, transform .06s ease, box-shadow .16s ease;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary { background: var(--ink); color: var(--ink-contrast); box-shadow: var(--shadow-1); }
+  .btn-primary:hover { background: var(--ink-hover); box-shadow: var(--shadow-2); }
+  .btn-default { background: var(--surface); border-color: var(--border-strong); color: var(--text-1); }
+  .btn-default:hover { border-color: var(--primary); color: var(--primary); }
+  .btn-ghost { color: var(--text-2); }
+  .btn-ghost:hover { background: var(--bg-soft); color: var(--text-1); }
+  .btn-danger { color: var(--danger); }
+  .btn-danger:hover { background: var(--danger-soft); }
+  .btn-lg { height: 44px; padding: 0 22px; font-size: 15px; border-radius: var(--r-lg); }
+  .btn-sm { height: 28px; padding: 0 10px; font-size: 13px; border-radius: var(--r-sm); }
+  .btn-block { width: 100%; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* ============ 6. 输入 ============ */
+  .field { display: grid; gap: 6px; max-width: 420px; }
+  .field-label { font-size: 13px; font-weight: 600; color: var(--text-2); }
+  .input {
+    width: 100%; height: 38px; padding: 0 12px; font-family: inherit; font-size: 14px;
+    color: var(--text-1); background: var(--surface); border: 1px solid var(--border-strong);
+    border-radius: var(--r-md); outline: none; transition: border-color .16s, box-shadow .16s;
+  }
+  .input::placeholder, .textarea::placeholder { color: var(--text-3); }
+  .input:focus, .textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 16%, transparent); }
+  .textarea { min-height: 108px; padding: 10px 12px; resize: vertical; line-height: 1.6; }
+
+  /* 风格 chips */
+  .chips { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+  .chip {
+    height: 30px; padding: 0 14px; display: inline-flex; align-items: center; gap: 6px;
+    border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface);
+    color: var(--text-2); font-size: 13px; cursor: pointer; transition: all .16s ease;
+  }
+  .chip:hover { border-color: var(--primary); color: var(--primary); }
+  .chip[aria-pressed="true"] { background: var(--primary-soft); border-color: var(--primary); color: var(--primary-strong); font-weight: 600; }
+  .chip .vip { font-size: 10px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+
+  /* ============ 7. 卡片 / 徽章 ============ */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: var(--shadow-1); }
+  .card-pad { padding: var(--s-5); }
+  .card-head { padding: var(--s-4) var(--s-5); border-bottom: 1px solid var(--border); font-weight: 600; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px;
+    border-radius: 999px; font-size: 12px; font-weight: 500; white-space: nowrap;
+  }
+  .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .badge-ok { color: var(--ok); background: var(--ok-soft); }
+  .badge-live { color: var(--info); background: var(--info-soft); }
+  .badge-live .dot { animation: pulse 1.4s ease-in-out infinite; }
+  .badge-warn { color: var(--warn); background: var(--warn-soft); }
+  .badge-danger { color: var(--danger); background: var(--danger-soft); }
+  .badge-neutral { color: var(--text-2); background: var(--bg-soft); }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+
+  /* ============ 8. 智能体流程步骤条 ============ */
+  .flow { display: grid; gap: var(--s-1); }
+  .flow-item { position: relative; display: flex; gap: var(--s-3); padding: var(--s-3); border-radius: var(--r-md); }
+  .flow-item::before {
+    content: ""; position: absolute; left: 21px; top: 40px; bottom: -4px; width: 2px;
+    background: var(--border); border-radius: 2px;
+  }
+  .flow-item:last-child::before { display: none; }
+  .flow-item.active { background: var(--primary-soft); }
+  .flow-item.active::before { background: var(--primary); opacity: .35; }
+  .flow-item.done::before { background: var(--ok); opacity: .35; }
+  .flow-indicator {
+    flex: 0 0 26px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center;
+    font-size: 12px; font-weight: 700; background: var(--bg-soft); color: var(--text-3);
+    border: 1px solid var(--border); position: relative; z-index: 1;
+  }
+  .flow-item.done .flow-indicator { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+  .flow-item.active .flow-indicator { background: var(--primary); color: var(--primary-contrast); border-color: transparent; }
+  .flow-title { font-size: 14px; font-weight: 600; }
+  .flow-desc { font-size: 12px; color: var(--text-3); }
+  .flow-item.active .flow-desc { color: var(--primary-strong); }
+
+  /* ============ 9. 迷你创作页 mock ============ */
+  .mock {
+    display: grid; grid-template-columns: 250px minmax(0, 1fr) 210px; gap: var(--s-4);
+    padding: var(--s-4); border-radius: var(--r-xl); border: 1px solid var(--border);
+    background: var(--bg-soft);
+  }
+  .mock-side { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: var(--s-3); }
+  .mock-main { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); padding: var(--s-5); }
+  .mock-side h3 { font-size: 14px; font-weight: 700; margin-bottom: 2px; }
+  .mock-side p { font-size: 12px; color: var(--text-3); margin-bottom: var(--s-3); }
+  .topic-list { display: grid; gap: 6px; }
+  .topic-item {
+    display: block; width: 100%; text-align: left; font: inherit; font-size: 13px;
+    padding: 8px 10px; border-radius: var(--r-sm); border: 1px solid var(--border);
+    background: var(--surface-2); color: var(--text-2); cursor: pointer; transition: all .16s ease;
+  }
+  .topic-item:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
+
+  /* ============ 10. 表格 ============ */
+  .table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .table thead th {
+    text-align: left; font-size: 12px; font-weight: 600; color: var(--text-2);
+    padding: 10px 12px; background: var(--surface-2); border-bottom: 1px solid var(--border);
+  }
+  .table tbody td { padding: 12px; border-bottom: 1px solid var(--border); color: var(--text-1); }
+  .table tbody tr:hover td { background: var(--primary-soft); }
+  .table tbody tr:last-child td { border-bottom: 0; }
+  .cell-sub { display: block; font-size: 12px; color: var(--text-3); }
+  .link { color: var(--primary); background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+  .link:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+  /* ============ 11. 定价卡 ============ */
+  .plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: var(--s-4); }
+  .plan { position: relative; padding: var(--s-5); border-radius: var(--r-lg); border: 1px solid var(--border); background: var(--surface); }
+  .plan.featured { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary), var(--shadow-2); }
+  .plan-tag {
+    position: absolute; top: -11px; left: var(--s-5); height: 22px; padding: 0 10px; border-radius: 999px;
+    display: inline-flex; align-items: center; font-size: 11px; font-weight: 700;
+    background: var(--accent); color: #fff; letter-spacing: .4px;
+  }
+  .plan-name { font-size: 14px; font-weight: 600; color: var(--text-2); }
+  .plan-price { font-size: 32px; font-weight: 700; letter-spacing: -.5px; margin: 6px 0 var(--s-3); }
+  .plan-price small { font-size: 13px; font-weight: 500; color: var(--text-3); }
+  .plan ul { list-style: none; padding: 0; display: grid; gap: 8px; margin-bottom: var(--s-5); }
+  .plan li { font-size: 13px; color: var(--text-2); display: flex; gap: 8px; align-items: flex-start; }
+  .plan li::before { content: "✓"; color: var(--ok); font-weight: 700; }
+
+  /* ============ 12. 日志面板 ============ */
+  .logs {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--r-md);
+    padding: var(--s-3); max-height: 190px; overflow: auto;
+    font-family: var(--font-mono); font-size: 12px; line-height: 1.9; color: var(--text-2);
+  }
+  .logs .t { color: var(--text-3); margin-right: 8px; }
+  .logs .ok { color: var(--ok); }
+  .logs .run { color: var(--info); }
+  .logs .warn { color: var(--warn); }
+
+  /* ============ 13. 提示条 ============ */
+  .alert { display: flex; gap: 10px; padding: 12px 14px; border-radius: var(--r-md); font-size: 13px; border: 1px solid transparent; }
+  .alert-info { background: var(--info-soft); color: var(--text-1); border-color: color-mix(in srgb, var(--info) 24%, transparent); }
+  .alert-warn { background: var(--warn-soft); color: var(--text-1); border-color: color-mix(in srgb, var(--warn) 26%, transparent); }
+  .alert-icon { font-weight: 700; }
+
+  /* ============ 14. 规范表 ============ */
+  .spec { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--s-4); }
+  .spec-card { border: 1px solid var(--border); border-radius: var(--r-md); padding: var(--s-4); background: var(--surface); }
+  .spec-card h3 { font-size: 13px; font-weight: 700; margin-bottom: var(--s-2); color: var(--text-2); }
+  .spec-card ul { margin: 0; padding-left: 16px; font-size: 12.5px; color: var(--text-2); display: grid; gap: 4px; }
+
+  .foot-note { color: var(--text-3); font-size: 12px; margin-top: var(--s-6); text-align: center; }
+
+  @media (max-width: 1100px) {
+    .mock { grid-template-columns: 230px minmax(0, 1fr); }
+    .mock > .mock-side:last-child { display: none; }
+  }
+
+  @media (max-width: 760px) {
+    .mock { grid-template-columns: 1fr; }
+    .t-hero { font-size: 30px; }
+    main { padding: var(--s-5) var(--s-4) var(--s-7); }
+  }
+</style>
+</head>
+<body>
+
+<header class="preview-bar">
+  <div class="brand">
+    <span class="brand-mark">智</span>
+    智能图文编写
+    <span class="brand-sub">／ 样式模板</span>
+  </div>
+  <div class="theme-switch" role="group" aria-label="切换配色方案">
+    <button type="button" data-set="a" aria-pressed="true">纸墨 · 朱砂</button>
+    <button type="button" data-set="b" aria-pressed="false">橄榄 · 油墨</button>
+    <button type="button" data-set="c" aria-pressed="false">炭灰 · 焦糖</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- 色板 -->
+  <section>
+    <div class="sec-head"><h2>色板</h2><span>背景三层 / 主色 / 语义色，全部为 CSS 变量，切换主题即换肤</span></div>
+    <div class="swatches" id="swatches"></div>
+  </section>
+
+  <!-- 排版 -->
+  <section>
+    <div class="sec-head"><h2>排版阶梯</h2><span>正文 15px / 行高 1.65；标题可选衬线体增强"写作"气质</span></div>
+    <div class="type-scale">
+      <div class="type-row"><span class="type-label">hero / 40 / 700</span><span class="t-hero serif">把想法写成一篇文章</span></div>
+      <div class="type-row"><span class="type-label">h1 / 26 / 700</span><span class="t-h1">创作新文章</span></div>
+      <div class="type-row"><span class="type-label">h2 / 18 / 600</span><span class="t-h2">智能体协作流程</span></div>
+      <div class="type-row"><span class="type-label">body / 15 / 400</span><span class="t-body">输入一个选题，AI 会依次完成选题分析、标题生成、大纲规划、正文撰写与配图。</span></div>
+      <div class="type-row"><span class="type-label">muted / 13 / 400</span><span class="t-muted">支持 Markdown 导出，可直接粘贴到公众号编辑器。</span></div>
+      <div class="type-row"><span class="type-label">caption / 12 / 400</span><span class="t-caption">上次更新于 2 分钟前</span></div>
+    </div>
+  </section>
+
+  <!-- 按钮 -->
+  <section>
+    <div class="sec-head"><h2>按钮与输入</h2><span>主按钮只用于「开始创作」这类唯一主动作</span></div>
+    <div class="row" style="margin-bottom: var(--s-5);">
+      <button class="btn btn-primary btn-lg">开始创作</button>
+      <button class="btn btn-primary">生成标题</button>
+      <button class="btn btn-default">重新生成</button>
+      <button class="btn btn-ghost">取消</button>
+      <button class="btn btn-danger">删除文章</button>
+      <button class="btn btn-primary" disabled>配额已用完</button>
+    </div>
+    <div class="row" style="align-items: stretch; gap: var(--s-4);">
+      <label class="field">
+        <span class="field-label">搜索</span>
+        <input class="input" placeholder="搜索标题或选题" />
+      </label>
+      <label class="field" style="max-width: 520px; flex: 1;">
+        <span class="field-label">文章选题</span>
+        <textarea class="input textarea" placeholder="例如：2026 年 AI 如何改变职场"></textarea>
+        <span class="t-caption">按 Ctrl + Enter 开始创作 · 0 / 500</span>
+      </label>
+    </div>
+  </section>
+
+  <!-- 状态与流程 -->
+  <section>
+    <div class="sec-head"><h2>状态徽章与智能体流程</h2><span>流程条是创作页的视觉主体，这里定了完成 / 进行中 / 等待三段状态</span></div>
+    <div class="row" style="margin-bottom: var(--s-5);">
+      <span class="badge badge-ok"><span class="dot"></span>已完成</span>
+      <span class="badge badge-live"><span class="dot"></span>生成中</span>
+      <span class="badge badge-warn"><span class="dot"></span>等待中</span>
+      <span class="badge badge-danger"><span class="dot"></span>失败</span>
+      <span class="badge badge-neutral">草稿</span>
+    </div>
+    <div class="card" style="max-width: 420px; padding: var(--s-3);">
+      <ol class="flow" style="list-style: none; padding: 0;">
+        <li class="flow-item done">
+          <span class="flow-indicator">✓</span>
+          <div><div class="flow-title">选题分析</div><div class="flow-desc">已提取核心关键词</div></div>
+        </li>
+        <li class="flow-item done">
+          <span class="flow-indicator">✓</span>
+          <div><div class="flow-title">标题生成</div><div class="flow-desc">已产出 5 个标题方案</div></div>
+        </li>
+        <li class="flow-item active">
+          <span class="flow-indicator">3</span>
+          <div><div class="flow-title">大纲规划</div><div class="flow-desc">正在拆分章节结构…</div></div>
+        </li>
+        <li class="flow-item">
+          <span class="flow-indicator">4</span>
+          <div><div class="flow-title">正文撰写</div><div class="flow-desc">等待大纲确认</div></div>
+        </li>
+        <li class="flow-item">
+          <span class="flow-indicator">5</span>
+          <div><div class="flow-title">配图与合并</div><div class="flow-desc">等待正文完成</div></div>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 迷你创作页 -->
+  <section>
+    <div class="sec-head"><h2>页面版式示例 · 创作页</h2><span>左流程 / 右工作区的两栏骨架，宽屏 260px + auto</span></div>
+    <div class="mock">
+      <aside class="mock-side">
+        <h3>创作流程</h3>
+        <p>智能体协作可视化</p>
+        <ol class="flow" style="list-style: none; padding: 0;">
+          <li class="flow-item done"><span class="flow-indicator">✓</span><div><div class="flow-title">生成标题</div><div class="flow-desc">已产出 5 个方案</div></div></li>
+          <li class="flow-item active"><span class="flow-indicator">2</span><div><div class="flow-title">规划大纲</div><div class="flow-desc">正在拆分章节…</div></div></li>
+          <li class="flow-item"><span class="flow-indicator">3</span><div><div class="flow-title">撰写正文</div><div class="flow-desc">流式生成中</div></div></li>
+          <li class="flow-item"><span class="flow-indicator">4</span><div><div class="flow-title">分析配图</div><div class="flow-desc">等待正文完成</div></div></li>
+          <li class="flow-item"><span class="flow-indicator">5</span><div><div class="flow-title">生成配图</div><div class="flow-desc">等待中</div></div></li>
+          <li class="flow-item"><span class="flow-indicator">6</span><div><div class="flow-title">图文合成</div><div class="flow-desc">等待中</div></div></li>
+        </ol>
+      </aside>
+      <div class="mock-main">
+        <h2 class="t-h1" style="margin-bottom: 6px;">创作新文章</h2>
+        <p class="t-muted" style="margin-bottom: var(--s-4);">输入选题，AI 帮你生成完整图文</p>
+        <textarea class="input textarea" placeholder="请输入您想创作的文章选题，例如：2026 年 AI 如何改变职场"></textarea>
+        <div style="display: flex; justify-content: space-between; margin-top: 6px;">
+          <span class="t-caption">按 Ctrl + Enter 快速开始</span>
+          <span class="t-caption">0 / 500</span>
+        </div>
+
+        <div style="margin: var(--s-4) 0 var(--s-2);" class="field-label">文章风格</div>
+        <div class="chips">
+          <button class="chip" aria-pressed="true">默认</button>
+          <button class="chip" aria-pressed="false">科技风格</button>
+          <button class="chip" aria-pressed="false">情感风格</button>
+          <button class="chip" aria-pressed="false">教育风格</button>
+          <button class="chip" aria-pressed="false">轻松幽默</button>
+        </div>
+
+        <div style="margin: var(--s-4) 0 var(--s-2);" class="field-label">配图方式 <span class="t-caption">（不选表示全部支持）</span></div>
+        <div class="chips">
+          <button class="chip" aria-pressed="true">Unsplash</button>
+          <button class="chip" aria-pressed="false">Qwen Image <span class="vip">VIP</span></button>
+          <button class="chip" aria-pressed="false">Mermaid</button>
+          <button class="chip" aria-pressed="false">Iconify</button>
+          <button class="chip" aria-pressed="false">表情包</button>
+          <button class="chip" aria-pressed="false">SVG 示意图 <span class="vip">VIP</span></button>
+        </div>
+
+        <button class="btn btn-primary btn-lg btn-block" style="margin-top: var(--s-5);">开始创作</button>
+        <div class="alert alert-info" style="margin-top: var(--s-4);">
+          <span class="alert-icon">ⓘ</span>
+          <span>生成通常需要 40–90 秒，期间可以离开页面，完成后在「我的文章」查看。</span>
+        </div>
+      </div>
+      <aside class="mock-side">
+        <h3>🔥 热门选题</h3>
+        <p>点一下直接填入</p>
+        <div class="topic-list">
+          <button class="topic-item">2026 年 AI 如何改变职场</button>
+          <button class="topic-item">程序员如何提升竞争力</button>
+          <button class="topic-item">远程办公的利与弊</button>
+          <button class="topic-item">如何培养深度思考</button>
+          <button class="topic-item">新能源汽车趋势</button>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- 表格 -->
+  <section>
+    <div class="sec-head"><h2>列表与表格</h2><span>文章列表：标题两行结构 + 状态徽章 + 文字型操作</span></div>
+    <div class="card" style="overflow: hidden;">
+      <table class="table">
+        <thead>
+          <tr><th style="width: 26%;">标题</th><th style="width: 20%;">选题</th><th style="width: 12%;">状态</th><th style="width: 16%;">创建时间</th><th>操作</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>2026 年 AI 如何改变职场<span class="cell-sub">从工具替代到能力重构</span></td>
+            <td class="t-muted">AI 与职场</td>
+            <td><span class="badge badge-ok"><span class="dot"></span>已完成</span></td>
+            <td class="t-muted">2026-10-27 14:02</td>
+            <td><button class="link">查看</button> · <button class="link">导出</button> · <button class="link" style="color: var(--danger);">删除</button></td>
+          </tr>
+          <tr>
+            <td>一人公司的自动化流水线<span class="cell-sub">小团队如何用 AI 放大产能</span></td>
+            <td class="t-muted">效率工具</td>
+            <td><span class="badge badge-live"><span class="dot"></span>生成中</span></td>
+            <td class="t-muted">2026-10-27 15:40</td>
+            <td><button class="link">查看</button> · <button class="link">导出</button> · <button class="link" style="color: var(--danger);">删除</button></td>
+          </tr>
+          <tr>
+            <td>写作的尽头是审美<span class="cell-sub">AI 时代的内容判断力</span></td>
+            <td class="t-muted">内容创作</td>
+            <td><span class="badge badge-danger"><span class="dot"></span>失败</span></td>
+            <td class="t-muted">2026-10-26 09:11</td>
+            <td><button class="link">查看</button> · <button class="link">重新创作</button> · <button class="link" style="color: var(--danger);">删除</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 定价 -->
+  <section>
+    <div class="sec-head"><h2>会员定价</h2><span>金色只用于会员标识与 featured 卡，不做大面积背景</span></div>
+    <div class="plans">
+      <div class="plan">
+        <div class="plan-name">免费版</div>
+        <div class="plan-price">¥0 <small>/ 月</small></div>
+        <ul>
+          <li>每月 3 篇文章额度</li>
+          <li>基础标题与大纲生成</li>
+          <li>Markdown 导出</li>
+        </ul>
+        <button class="btn btn-default btn-block">当前方案</button>
+      </div>
+      <div class="plan featured">
+        <span class="plan-tag">推荐</span>
+        <div class="plan-name">专业版</div>
+        <div class="plan-price">¥29 <small>/ 月</small></div>
+        <ul>
+          <li>每月 100 篇文章额度</li>
+          <li>全部文章风格与配图方式</li>
+          <li>更快的生成队列</li>
+        </ul>
+        <button class="btn btn-primary btn-block">立即升级</button>
+      </div>
+      <div class="plan">
+        <div class="plan-name">创作者年卡</div>
+        <div class="plan-price">¥299 <small>/ 年</small></div>
+        <ul>
+          <li>全年不限篇数（合理使用）</li>
+          <li>优先体验新智能体</li>
+          <li>专属客服通道</li>
+        </ul>
+        <button class="btn btn-default btn-block">查看权益</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 日志 -->
+  <section>
+    <div class="sec-head"><h2>执行日志面板</h2><span>等宽字体、低对比底，长时间盯着不刺眼</span></div>
+    <div class="logs">
+      <div><span class="t">14:02:11</span><span class="ok">[选题分析]</span> 已提取关键词：AI、职场、能力重构</div>
+      <div><span class="t">14:02:14</span><span class="ok">[标题生成]</span> 产出 5 个候选标题</div>
+      <div><span class="t">14:02:19</span><span class="run">[大纲规划]</span> 正在生成 4 个一级章节…</div>
+      <div><span class="t">14:02:26</span><span class="warn">[配图]</span> 未选择配图方式，跳过图片生成</div>
+      <div><span class="t">14:02:31</span><span class="ok">[正文撰写]</span> 第 1 / 4 章完成</div>
+    </div>
+  </section>
+
+  <!-- 规范 -->
+  <section>
+    <div class="sec-head"><h2>落地规范</h2><span>同色系只做明度变化，圆角与阴影收敛到 3 档</span></div>
+    <div class="spec">
+      <div class="spec-card">
+        <h3>圆角</h3>
+        <ul><li>6px 输入内元素 / 小按钮</li><li>10px 按钮、输入框</li><li>14px 卡片</li><li>20px 大容器、弹层</li></ul>
+      </div>
+      <div class="spec-card">
+        <h3>阴影</h3>
+        <ul><li>shadow-1 卡片默认（极轻）</li><li>shadow-2 悬浮 / 弹层</li><li>不使用大范围彩色阴影</li></ul>
+      </div>
+      <div class="spec-card">
+        <h3>间距</h3>
+        <ul><li>4 的倍数体系：4/8/12/16/24/32/48</li><li>区块之间 48，卡片内 24</li><li>表单项之间 16</li></ul>
+      </div>
+      <div class="spec-card">
+        <h3>用法约束</h3>
+        <ul><li>一屏只保留一个主按钮</li><li>渐变仅用于极轻的顶光背景</li><li>语义色不互串：成功只绿、失败只红</li></ul>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot-note">这是静态预览稿，用于确认配色与组件基调；确认后再落到 Vue 组件与 Ant Design 主题变量。</p>
+</main>
+
+<script>
+  const THEMES = {
+    a: [
+      ['--bg', '#f7f3ec'], ['--bg-soft', '#efe8db'], ['--surface', '#fffdf9'], ['--border', '#e3d9c8'],
+      ['--text-1', '#211e1a'], ['--text-2', '#5b5448'], ['--text-3', '#9c9384'],
+      ['--primary', '#b23a2e'], ['--primary-strong', '#8f2b21'], ['--primary-soft', '#f5e4e0'],
+      ['--ink', '#23201b'], ['--accent', '#9a6a2f'], ['--ok', '#3f6b4f'], ['--info', '#6b5b46'],
+      ['--warn', '#9a6a2f'], ['--danger', '#a0362b'], ['--primary-contrast', '#ffffff'],
+    ],
+    b: [
+      ['--bg', '#f4f4ee'], ['--bg-soft', '#eaeadf'], ['--surface', '#fefefb'], ['--border', '#dcdccd'],
+      ['--text-1', '#1b1e17'], ['--text-2', '#4f5445'], ['--text-3', '#929884'],
+      ['--primary', '#4d5b32'], ['--primary-strong', '#3a4526'], ['--primary-soft', '#e8ebdf'],
+      ['--ink', '#20241c'], ['--accent', '#a67442'], ['--ok', '#40714f'], ['--info', '#5f5847'],
+      ['--warn', '#a67442'], ['--danger', '#9e3b32'], ['--primary-contrast', '#ffffff'],
+    ],
+    c: [
+      ['--bg', '#f4f4f1'], ['--bg-soft', '#e9e9e4'], ['--surface', '#ffffff'], ['--border', '#dededa'],
+      ['--text-1', '#1a1a19'], ['--text-2', '#55554f'], ['--text-3', '#97978f'],
+      ['--primary', '#8a6a4b'], ['--primary-strong', '#6f5339'], ['--primary-soft', '#f1e9e1'],
+      ['--ink', '#1f1f1d'], ['--accent', '#a6763a'], ['--ok', '#40714f'], ['--info', '#635c4e'],
+      ['--warn', '#a6763a'], ['--danger', '#a33f38'], ['--primary-contrast', '#ffffff'],
+    ],
+  };
+
+  const box = document.getElementById('swatches');
+  function render(key) {
+    box.innerHTML = THEMES[key]
+      .map(([name, hex]) => `
+      <div class="swatch">
+        <div class="swatch-chip" style="background: var(${name})"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">${name.replace('--', '')}</div>
+          <div class="swatch-hex">${hex}</div>
+        </div>
+      </div>`)
+      .join('');
+  }
+
+  document.querySelectorAll('.theme-switch button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.set;
+      document.documentElement.dataset.theme = key;
+      document.querySelectorAll('.theme-switch button').forEach((b) => {
+        b.setAttribute('aria-pressed', String(b === btn));
+      });
+      render(key);
+    });
+  });
+
+  document.querySelectorAll('.chip').forEach((chip) => {
+    chip.addEventListener('click', () => {
+      chip.setAttribute('aria-pressed', String(chip.getAttribute('aria-pressed') !== 'true'));
+    });
+  });
+
+  render('a');
+</script>
+</body>
+</html>

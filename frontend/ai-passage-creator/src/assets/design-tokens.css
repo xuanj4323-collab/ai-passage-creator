@@ -1,0 +1,68 @@
+/**
+ * 设计令牌 · 炭灰 · 焦糖
+ *
+ * 全站唯一的色彩来源：组件里一律用 var(--c-*)，不要再写死色值。
+ * 主按钮用墨黑（--c-ink），焦糖（--c-primary）只做链接、选中态与会员标识的点缀。
+ */
+
+:root {
+  /* 底色与表面 */
+  --c-bg: #f4f4f1;
+  --c-bg-soft: #e9e9e4;
+  --c-surface: #ffffff;
+  --c-surface-2: #fafaf7;
+  --c-border: #dededa;
+  --c-border-strong: #c8c8c2;
+
+  /* 文字层级 */
+  --c-text-1: #1a1a19;
+  --c-text-2: #55554f;
+  --c-text-3: #97978f;
+
+  /* 主色：焦糖，只做强调 */
+  --c-primary: #8a6a4b;
+  --c-primary-strong: #6f5339;
+  --c-primary-soft: #f1e9e1;
+
+  /* 主按钮：墨黑 */
+  --c-ink: #1f1f1d;
+  --c-ink-hover: #343431;
+  --c-ink-contrast: #fbfbf8;
+
+  /* 会员 / 点缀 */
+  --c-accent: #a6763a;
+  --c-accent-soft: #f5ecdf;
+
+  /* 语义色 */
+  --c-ok: #40714f;
+  --c-ok-soft: #e7f0e8;
+  --c-info: #635c4e;
+  --c-info-soft: #f0ece4;
+  --c-warn: #a6763a;
+  --c-warn-soft: #f5ecdf;
+  --c-danger: #a33f38;
+  --c-danger-soft: #f7e8e6;
+
+  /* 圆角 */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 20px;
+
+  /* 阴影 */
+  --shadow-1: 0 1px 2px rgba(26, 26, 25, 0.06), 0 1px 3px rgba(26, 26, 25, 0.04);
+  --shadow-2: 0 8px 24px rgba(26, 26, 25, 0.08), 0 2px 6px rgba(26, 26, 25, 0.04);
+
+  /* 字体 */
+  --font-sans:
+    'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', sans-serif;
+  --font-serif: 'Noto Serif SC', 'Songti SC', 'SimSun', Georgia, serif;
+  --font-mono: 'JetBrains Mono', 'Cascadia Code', Consolas, 'Courier New', monospace;
+}
+
+body {
+  background: var(--c-bg);
+  color: var(--c-text-1);
+  font-family: var(--font-sans);
+}

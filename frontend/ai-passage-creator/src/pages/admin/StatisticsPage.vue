@@ -104,7 +104,7 @@
             </div>
             <a-progress
               :percent="vipRatioPercent"
-              :stroke-color="{ from: '#faad14', to: '#d4a017' }"
+              :stroke-color="{ from: '#c89a5e', to: '#a6763a' }"
               :show-info="false"
             />
             <p class="vip-hint">{{ stats.vipUserCount ?? 0 }} 位永久会员 / 共 {{ stats.totalUserCount ?? 0 }} 位用户</p>
@@ -173,12 +173,12 @@ const successRatePercent = computed(() => {
 const rateStrokeColor = computed(() => {
   const rate = successRatePercent.value
   if (rate >= 90) {
-    return '#52c41a'
+    return 'var(--c-ok)'
   }
   if (rate >= 70) {
     return '#faad14'
   }
-  return '#ff4d4f'
+  return 'var(--c-danger)'
 })
 
 /** 平均耗时：毫秒转可读文本 */
@@ -227,20 +227,21 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-$primary: #667eea;
-$gold: #d4a017;
+$primary: var(--c-primary);
+$gold: var(--c-accent);
 
 .statistics-page {
   min-height: 100vh;
   padding-bottom: 40px;
-  background: #f0f2f5;
+  background: var(--c-bg);
 }
 
 /* 页头 */
 .page-header {
   padding: 28px 24px;
-  background: linear-gradient(135deg, $primary 0%, #764ba2 100%);
-  color: #fff;
+  background: var(--c-surface);
+  color: var(--c-text-1);
+  border-bottom: 1px solid var(--c-border);
 
   .header-inner {
     display: flex;
@@ -282,7 +283,7 @@ $gold: #d4a017;
     margin: 0 0 14px;
     font-size: 16px;
     font-weight: 600;
-    color: #1a1a1a;
+    color: var(--c-text-1);
   }
 }
 
@@ -290,30 +291,30 @@ $gold: #d4a017;
 .kpi-card {
   height: 100%;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgba(26, 26, 25, 0.06);
 
   :deep(.ant-statistic-title) {
     font-size: 13px;
-    color: #8c8c8c;
+    color: var(--c-text-2);
   }
 
   :deep(.ant-statistic-content) {
     font-size: 30px;
     font-weight: 700;
-    color: #1a1a1a;
+    color: var(--c-text-1);
   }
 
   :deep(.ant-statistic-content-suffix) {
     margin-left: 4px;
     font-size: 13px;
     font-weight: 400;
-    color: #8c8c8c;
+    color: var(--c-text-2);
   }
 
   .kpi-hint {
     margin: 8px 0 0;
     font-size: 12px;
-    color: #bfbfbf;
+    color: var(--c-text-3);
   }
 }
 
@@ -322,25 +323,25 @@ $gold: #d4a017;
   height: 100%;
   border-radius: 12px;
   text-align: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgba(26, 26, 25, 0.06);
 
   .metric-label {
     margin-bottom: 12px;
     font-size: 13px;
-    color: #8c8c8c;
+    color: var(--c-text-2);
   }
 
   .metric-value {
     font-size: 32px;
     font-weight: 700;
     line-height: 1.3;
-    color: #1a1a1a;
+    color: var(--c-text-1);
 
     .unit {
       margin-left: 4px;
       font-size: 14px;
       font-weight: 400;
-      color: #8c8c8c;
+      color: var(--c-text-2);
     }
   }
 
@@ -348,7 +349,7 @@ $gold: #d4a017;
     margin: 10px 0 0;
     font-size: 12px;
     line-height: 1.6;
-    color: #bfbfbf;
+    color: var(--c-text-3);
   }
 
   &.rate-card {
@@ -359,7 +360,7 @@ $gold: #d4a017;
 /* VIP 占比 */
 .vip-card {
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgba(26, 26, 25, 0.06);
 
   .vip-header {
     display: flex;
@@ -374,7 +375,7 @@ $gold: #d4a017;
     gap: 8px;
     font-size: 14px;
     font-weight: 600;
-    color: #1a1a1a;
+    color: var(--c-text-1);
   }
 
   .vip-ratio {
@@ -386,7 +387,7 @@ $gold: #d4a017;
   .vip-hint {
     margin: 10px 0 0;
     font-size: 12px;
-    color: #bfbfbf;
+    color: var(--c-text-3);
   }
 }
 

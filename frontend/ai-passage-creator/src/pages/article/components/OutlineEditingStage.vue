@@ -286,14 +286,14 @@ const handleAiModify = async () => {
 </script>
 
 <style scoped lang="scss">
-$primary: #667eea;
-$primary-dark: #764ba2;
+$primary: var(--c-primary);
+$primary-dark: var(--c-primary-strong);
 
 .outline-editing-stage {
   padding: 32px;
-  background: #fff;
+  background: var(--c-surface);
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgba(26, 26, 25, 0.06);
 }
 
 .stage-header {
@@ -303,13 +303,13 @@ $primary-dark: #764ba2;
     margin: 0 0 8px;
     font-size: 22px;
     font-weight: 700;
-    color: #1a1a1a;
+    color: var(--c-text-1);
   }
 
   .stage-subtitle {
     margin: 0;
     font-size: 14px;
-    color: #8c8c8c;
+    color: var(--c-text-2);
   }
 }
 
@@ -322,8 +322,8 @@ $primary-dark: #764ba2;
 
 .outline-section {
   padding: 16px;
-  background: #fafafa;
-  border: 1px solid #f0f0f0;
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border);
   border-radius: 10px;
 
   .section-header {
@@ -338,7 +338,7 @@ $primary-dark: #764ba2;
     padding: 0 2px;
     font-size: 14px;
     line-height: 1;
-    color: #bfbfbf;
+    color: var(--c-text-3);
     letter-spacing: -2px;
     cursor: grab;
     user-select: none;
@@ -355,7 +355,7 @@ $primary-dark: #764ba2;
     font-size: 12px;
     font-weight: 600;
     line-height: 22px;
-    color: #fff;
+    color: var(--c-surface);
     text-align: center;
     background: $primary;
     border-radius: 50%;
@@ -405,10 +405,10 @@ $primary-dark: #764ba2;
 
     .delete-point-btn {
       flex: 0 0 auto;
-      color: #bfbfbf;
+      color: var(--c-text-3);
 
       &:hover {
-        color: #cf1322;
+        color: var(--c-danger);
       }
     }
   }
@@ -424,8 +424,8 @@ $primary-dark: #764ba2;
 .ai-chat-section {
   margin-top: 24px;
   padding: 16px;
-  background: #f5f7ff;
-  border: 1px solid #e4e9f2;
+  background: var(--c-primary-soft);
+  border: 1px solid var(--c-bg-soft);
   border-radius: 10px;
 
   .chat-header {
@@ -473,11 +473,12 @@ $primary-dark: #764ba2;
     font-weight: 600;
     border: none;
     border-radius: 8px;
-    background: linear-gradient(135deg, $primary 0%, $primary-dark 100%);
+    background: var(--c-ink);
+    color: var(--c-ink-contrast);
 
     &:not(:disabled):hover {
       transform: translateY(-1px);
-      box-shadow: 0 6px 14px rgba(102, 126, 234, 0.35);
+      box-shadow: var(--shadow-2);
     }
   }
 }

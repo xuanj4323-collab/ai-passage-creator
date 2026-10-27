@@ -379,20 +379,21 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-$primary: #667eea;
-$primary-dark: #764ba2;
+$primary: var(--c-primary);
+$primary-dark: var(--c-primary-strong);
 
 .article-list-page {
   min-height: 100vh;
   padding-bottom: 40px;
-  background: #f0f2f5;
+  background: var(--c-bg);
 }
 
 /* 页头 */
 .page-header {
   padding: 32px 24px;
-  background: linear-gradient(135deg, $primary 0%, $primary-dark 100%);
-  color: #fff;
+  background: var(--c-surface);
+  color: var(--c-text-1);
+  border-bottom: 1px solid var(--c-border);
 
   .header-inner {
     display: flex;
@@ -431,9 +432,9 @@ $primary-dark: #764ba2;
   align-items: center;
   margin-bottom: 16px;
   padding: 16px;
-  background: #fff;
+  background: var(--c-surface);
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgba(26, 26, 25, 0.06);
 
   .filter-search {
     width: 280px;
@@ -452,14 +453,14 @@ $primary-dark: #764ba2;
   .filter-summary {
     margin-left: auto;
     font-size: 13px;
-    color: #8c8c8c;
+    color: var(--c-text-2);
   }
 }
 
 /* 表格卡片 */
 .table-card {
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgba(26, 26, 25, 0.06);
 
   :deep(.ant-card-body) {
     padding: 8px 16px 16px;
@@ -467,7 +468,7 @@ $primary-dark: #764ba2;
 }
 
 .topic-text {
-  color: #595959;
+  color: var(--c-text-2);
 }
 
 /* 标题单元格（整块可点，语义上是按钮） */
@@ -485,7 +486,7 @@ $primary-dark: #764ba2;
   transition: background 0.2s;
 
   &:hover {
-    background: #f5f7ff;
+    background: var(--c-primary-soft);
 
     .main-title {
       color: $primary;
@@ -500,13 +501,13 @@ $primary-dark: #764ba2;
   .main-title {
     font-size: 14px;
     font-weight: 600;
-    color: #1a1a1a;
+    color: var(--c-text-1);
     transition: color 0.2s;
   }
 
   .sub-title {
     font-size: 12px;
-    color: #999;
+    color: var(--c-text-3);
   }
 }
 
@@ -518,8 +519,8 @@ $primary-dark: #764ba2;
   padding: 3px 10px;
   font-size: 12px;
   border-radius: 12px;
-  background: #f5f5f5;
-  color: #595959;
+  background: var(--c-bg-soft);
+  color: var(--c-text-2);
 
   .status-dot {
     width: 6px;
@@ -529,29 +530,29 @@ $primary-dark: #764ba2;
   }
 
   &.is-completed {
-    color: #389e0d;
-    background: #f6ffed;
+    color: var(--c-ok);
+    background: var(--c-ok-soft);
   }
 
   &.is-processing {
-    color: #0958d9;
-    background: #e6f4ff;
+    color: var(--c-info);
+    background: var(--c-info-soft);
   }
 
   &.is-pending {
-    color: #d46b08;
-    background: #fff7e6;
+    color: var(--c-warn);
+    background: var(--c-warn-soft);
   }
 
   &.is-failed {
-    color: #cf1322;
-    background: #fff1f0;
+    color: var(--c-danger);
+    background: var(--c-danger-soft);
   }
 }
 
 .time-text {
   font-size: 13px;
-  color: #8c8c8c;
+  color: var(--c-text-2);
 }
 
 .action-group {
@@ -568,20 +569,20 @@ $primary-dark: #764ba2;
 
   .empty-icon {
     font-size: 44px;
-    color: #d9d9d9;
+    color: var(--c-border-strong);
   }
 
   .empty-title {
     margin: 12px 0 4px;
     font-size: 15px;
     font-weight: 600;
-    color: #595959;
+    color: var(--c-text-2);
   }
 
   .empty-desc {
     margin: 0 0 16px;
     font-size: 13px;
-    color: #bfbfbf;
+    color: var(--c-text-3);
   }
 }
 

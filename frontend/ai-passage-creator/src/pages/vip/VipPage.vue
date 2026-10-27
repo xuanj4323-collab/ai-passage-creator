@@ -347,19 +347,19 @@ onMounted(async () => {
 </script>
 
 <style scoped lang="scss">
-$gold: #d4a017;
-$gold-light: #faad14;
+$gold: var(--c-accent);
+$gold-light: #c89a5e;
 
 .vip-page {
   min-height: 100vh;
-  background: #f0f2f5;
+  background: var(--c-bg);
 }
 
 /* 顶部横幅 */
 .vip-hero {
   padding: 48px 24px 56px;
   background: linear-gradient(135deg, #2b2118 0%, #4a3a24 55%, #7a5c2e 100%);
-  color: #fff;
+  color: var(--c-surface);
 
   .hero-content {
     max-width: 880px;
@@ -409,7 +409,7 @@ $gold-light: #faad14;
 .active-card,
 .records-card {
   border-radius: 14px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 24px rgba(26, 26, 25, 0.08);
 }
 
 /* 价格卡 */
@@ -437,13 +437,13 @@ $gold-light: #faad14;
 
   .price-unit {
     font-size: 15px;
-    color: #8c8c8c;
+    color: var(--c-text-2);
   }
 
   .price-desc {
     margin: 6px 0 28px;
     font-size: 14px;
-    color: #8c8c8c;
+    color: var(--c-text-2);
     text-align: center;
   }
 
@@ -465,20 +465,20 @@ $gold-light: #faad14;
       flex: 0 0 auto;
       margin-top: 3px;
       font-size: 18px;
-      color: #52c41a;
+      color: var(--c-ok);
     }
 
     .benefit-title {
       font-size: 15px;
       font-weight: 600;
-      color: #1a1a1a;
+      color: var(--c-text-1);
     }
 
     .benefit-desc {
       margin-top: 2px;
       font-size: 13px;
       line-height: 1.6;
-      color: #8c8c8c;
+      color: var(--c-text-2);
     }
   }
 
@@ -492,14 +492,14 @@ $gold-light: #faad14;
 
     &:not(:disabled):hover {
       transform: translateY(-2px);
-      box-shadow: 0 8px 20px rgba(212, 160, 23, 0.4);
+      box-shadow: 0 8px 20px rgba(166, 118, 58, 0.35);
     }
   }
 
   .pay-hint {
     margin: 12px 0 0;
     font-size: 12px;
-    color: #bfbfbf;
+    color: var(--c-text-3);
     text-align: center;
   }
 }
@@ -524,13 +524,13 @@ $gold-light: #faad14;
       margin: 0 0 4px;
       font-size: 20px;
       font-weight: 700;
-      color: #1a1a1a;
+      color: var(--c-text-1);
     }
 
     p {
       margin: 0;
       font-size: 13px;
-      color: #8c8c8c;
+      color: var(--c-text-2);
     }
   }
 
@@ -543,7 +543,7 @@ $gold-light: #faad14;
   .refund-hint {
     margin: 12px 0 0;
     font-size: 12px;
-    color: #bfbfbf;
+    color: var(--c-text-3);
   }
 }
 
@@ -556,11 +556,11 @@ $gold-light: #faad14;
 
   .refund-info {
     font-size: 13px;
-    color: #8c8c8c;
+    color: var(--c-text-2);
   }
 
   .muted {
-    color: #bfbfbf;
+    color: var(--c-text-3);
   }
 }
 

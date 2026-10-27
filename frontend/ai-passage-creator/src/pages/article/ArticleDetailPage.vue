@@ -287,12 +287,12 @@ onMounted(() => {
 </script>
 
 <style scoped lang="scss">
-$primary: #667eea;
+$primary: var(--c-primary);
 
 .article-detail-page {
   min-height: 100vh;
   padding: 24px;
-  background: #f0f2f5;
+  background: var(--c-bg);
   box-sizing: border-box;
 }
 
@@ -316,35 +316,35 @@ $primary: #667eea;
 
 .detail-card {
   padding: 40px;
-  background: #fff;
+  background: var(--c-surface);
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgba(26, 26, 25, 0.06);
 }
 
 .detail-empty {
   padding: 60px 24px;
-  background: #fff;
+  background: var(--c-surface);
   border-radius: 12px;
 }
 
 /* 标题区 */
 .title-section {
   padding-bottom: 20px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--c-border);
 
   .main-title {
     margin: 0 0 12px;
     font-size: 30px;
     font-weight: 700;
     line-height: 1.4;
-    color: #1a1a1a;
+    color: var(--c-text-1);
   }
 
   .sub-title {
     margin: 0 0 16px;
     font-size: 16px;
     line-height: 1.6;
-    color: #8c8c8c;
+    color: var(--c-text-2);
   }
 
   .meta-info {
@@ -353,7 +353,7 @@ $primary: #667eea;
     gap: 12px;
     align-items: center;
     font-size: 13px;
-    color: #999;
+    color: var(--c-text-3);
   }
 }
 
@@ -389,14 +389,14 @@ $primary: #667eea;
 
 .outline-item {
   padding: 14px 16px;
-  background: #fafafa;
+  background: var(--c-surface-2);
   border-left: 3px solid $primary;
   border-radius: 6px;
 
   .outline-title {
     font-size: 15px;
     font-weight: 600;
-    color: #1a1a1a;
+    color: var(--c-text-1);
   }
 
   .outline-points {
@@ -407,7 +407,7 @@ $primary: #667eea;
       margin-bottom: 4px;
       font-size: 13px;
       line-height: 1.7;
-      color: #595959;
+      color: var(--c-text-2);
 
       &:last-child {
         margin-bottom: 0;
@@ -420,7 +420,7 @@ $primary: #667eea;
 .markdown-content {
   font-size: 16px;
   line-height: 1.9;
-  color: #333;
+  color: var(--c-text-1);
   word-break: break-word;
 
   :deep(h1),
@@ -430,7 +430,7 @@ $primary: #667eea;
     margin: 28px 0 14px;
     font-weight: 600;
     line-height: 1.4;
-    color: #1a1a1a;
+    color: var(--c-text-1);
   }
 
   :deep(h1) {
@@ -440,7 +440,7 @@ $primary: #667eea;
   :deep(h2) {
     padding-bottom: 8px;
     font-size: 22px;
-    border-bottom: 2px solid #f0f0f0;
+    border-bottom: 2px solid var(--c-border);
   }
 
   :deep(h3) {
@@ -472,16 +472,16 @@ $primary: #667eea;
   :deep(blockquote) {
     margin: 0 0 16px;
     padding: 12px 16px;
-    color: #595959;
-    background: #fafafa;
-    border-left: 4px solid #d9d9d9;
+    color: var(--c-text-2);
+    background: var(--c-surface-2);
+    border-left: 4px solid var(--c-border-strong);
   }
 
   :deep(code) {
     padding: 2px 6px;
     font-family: Consolas, Monaco, monospace;
     font-size: 0.9em;
-    background: #f5f5f5;
+    background: var(--c-bg-soft);
     border-radius: 4px;
   }
 
@@ -489,7 +489,7 @@ $primary: #667eea;
     margin: 0 0 16px;
     padding: 16px;
     overflow-x: auto;
-    background: #f5f5f5;
+    background: var(--c-bg-soft);
     border-radius: 8px;
 
     code {
@@ -506,11 +506,11 @@ $primary: #667eea;
     th,
     td {
       padding: 8px 12px;
-      border: 1px solid #e8e8e8;
+      border: 1px solid var(--c-border);
     }
 
     th {
-      background: #fafafa;
+      background: var(--c-surface-2);
       font-weight: 600;
     }
   }
@@ -526,9 +526,9 @@ $primary: #667eea;
 .image-item {
   margin: 0;
   overflow: hidden;
-  background: #fafafa;
+  background: var(--c-surface-2);
   border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px rgba(26, 26, 25, 0.08);
   transition: transform 0.25s;
 
   &:hover {
@@ -540,7 +540,7 @@ $primary: #667eea;
     width: 100%;
     height: 180px;
     object-fit: cover;
-    background: #f0f0f0;
+    background: var(--c-border);
   }
 
   .image-info {
@@ -553,7 +553,7 @@ $primary: #667eea;
     .keywords {
       overflow: hidden;
       font-size: 12px;
-      color: #999;
+      color: var(--c-text-3);
       text-overflow: ellipsis;
       white-space: nowrap;
     }

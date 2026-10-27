@@ -227,7 +227,7 @@ onMounted(() => {
   gap: 24px;
   padding: 12px 16px;
   margin-bottom: 12px;
-  background: #fafafa;
+  background: var(--c-surface-2);
   border-radius: 8px;
 
   .summary-item {
@@ -238,13 +238,13 @@ onMounted(() => {
 
   .summary-label {
     font-size: 13px;
-    color: #8c8c8c;
+    color: var(--c-text-2);
   }
 
   .summary-value {
     font-size: 14px;
     font-weight: 600;
-    color: #1a1a1a;
+    color: var(--c-text-1);
   }
 }
 
@@ -253,8 +253,8 @@ onMounted(() => {
   :deep(.ant-collapse-item) {
     margin-bottom: 8px;
     overflow: hidden;
-    background: #fafafa;
-    border: 1px solid #f0f0f0;
+    background: var(--c-surface-2);
+    border: 1px solid var(--c-border);
     border-radius: 8px !important;
   }
 
@@ -277,12 +277,12 @@ onMounted(() => {
   .agent-name {
     font-size: 14px;
     font-weight: 600;
-    color: #1a1a1a;
+    color: var(--c-text-1);
   }
 
   .duration {
     font-size: 12px;
-    color: #8c8c8c;
+    color: var(--c-text-2);
   }
 }
 
@@ -297,11 +297,11 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   font-size: 13px;
-  color: #595959;
+  color: var(--c-text-2);
 
   .detail-label {
     flex: 0 0 72px;
-    color: #8c8c8c;
+    color: var(--c-text-2);
   }
 }
 
@@ -311,9 +311,9 @@ onMounted(() => {
   padding: 8px 12px;
   font-size: 13px;
   line-height: 1.6;
-  color: #cf1322;
-  background: #fff1f0;
-  border: 1px solid #ffccc7;
+  color: var(--c-danger);
+  background: var(--c-danger-soft);
+  border: 1px solid var(--c-danger-soft);
   border-radius: 6px;
 }
 
@@ -323,7 +323,7 @@ onMounted(() => {
 
   summary {
     font-size: 13px;
-    color: #667eea;
+    color: var(--c-primary);
     cursor: pointer;
     user-select: none;
 
@@ -341,11 +341,11 @@ onMounted(() => {
   font-family: Consolas, Monaco, monospace;
   font-size: 12px;
   line-height: 1.6;
-  color: #333;
+  color: var(--c-text-1);
   white-space: pre-wrap;
   word-break: break-word;
-  background: #fff;
-  border: 1px solid #f0f0f0;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
   border-radius: 6px;
 }
 

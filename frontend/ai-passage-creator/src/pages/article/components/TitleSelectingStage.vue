@@ -137,14 +137,14 @@ const handleConfirm = () => {
 </script>
 
 <style scoped lang="scss">
-$primary: #667eea;
-$primary-dark: #764ba2;
+$primary: var(--c-primary);
+$primary-dark: var(--c-primary-strong);
 
 .title-selecting-stage {
   padding: 32px;
-  background: #fff;
+  background: var(--c-surface);
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgba(26, 26, 25, 0.06);
 }
 
 .stage-header {
@@ -154,13 +154,13 @@ $primary-dark: #764ba2;
     margin: 0 0 8px;
     font-size: 22px;
     font-weight: 700;
-    color: #1a1a1a;
+    color: var(--c-text-1);
   }
 
   .stage-subtitle {
     margin: 0;
     font-size: 14px;
-    color: #8c8c8c;
+    color: var(--c-text-2);
   }
 }
 
@@ -174,8 +174,8 @@ $primary-dark: #764ba2;
 
 .title-option {
   padding: 14px 16px;
-  background: #fafafa;
-  border: 1px solid #f0f0f0;
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border);
   border-radius: 10px;
   transition: all 0.2s;
 
@@ -187,7 +187,7 @@ $primary-dark: #764ba2;
 
   &:hover {
     border-color: $primary;
-    background: #f5f7ff;
+    background: var(--c-primary-soft);
   }
 
   .title-content {
@@ -208,14 +208,14 @@ $primary-dark: #764ba2;
     font-size: 16px;
     font-weight: 600;
     line-height: 1.5;
-    color: #1a1a1a;
+    color: var(--c-text-1);
     white-space: normal;
   }
 
   .title-sub {
     font-size: 13px;
     line-height: 1.6;
-    color: #8c8c8c;
+    color: var(--c-text-2);
     white-space: normal;
   }
 
@@ -243,13 +243,13 @@ $primary-dark: #764ba2;
     margin-bottom: 4px;
     font-size: 14px;
     font-weight: 600;
-    color: #1a1a1a;
+    color: var(--c-text-1);
   }
 
   .section-tip {
     margin: 0 0 10px;
     font-size: 12px;
-    color: #bfbfbf;
+    color: var(--c-text-3);
   }
 
   .description-textarea {
@@ -270,11 +270,12 @@ $primary-dark: #764ba2;
     font-weight: 600;
     border: none;
     border-radius: 8px;
-    background: linear-gradient(135deg, $primary 0%, $primary-dark 100%);
+    background: var(--c-ink);
+    color: var(--c-ink-contrast);
 
     &:not(:disabled):hover {
       transform: translateY(-1px);
-      box-shadow: 0 6px 14px rgba(102, 126, 234, 0.35);
+      box-shadow: var(--shadow-2);
     }
   }
 }

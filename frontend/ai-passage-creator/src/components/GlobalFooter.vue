@@ -1,37 +1,35 @@
 <template>
   <a-layout-footer class="footer">
-    <div class="footer-content">
-      <p class="copyright">
-        <a
-          href="https://www.codefather.cn"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="author-link"
-        >
-          编程导航原创项目
-        </a>
-      </p>
-    </div>
+    <span class="footer-brand">智能图文编写</span>
+    <span class="footer-sep">·</span>
+    <span>多智能体协作的 AI 图文创作工具</span>
+    <span class="footer-sep">·</span>
+    <span>© {{ year }}</span>
   </a-layout-footer>
 </template>
 
 <script setup lang="ts">
-// 无需额外的响应式数据
+const year = new Date().getFullYear()
 </script>
 
 <style scoped>
 .footer {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(10px);
+  padding: 24px 16px;
+  margin-top: 48px;
+  font-size: 13px;
+  color: var(--c-text-3);
   text-align: center;
-  padding: 20px;
-  margin-top: 40px;
-  border-top: 1px solid rgba(102, 126, 234, 0.1);
+  background: transparent;
+  border-top: 1px solid var(--c-border);
 }
 
-.copyright {
-  margin: 0;
-  color: #666;
-  font-size: 14px;
+.footer-brand {
+  font-weight: 600;
+  color: var(--c-text-2);
+}
+
+.footer-sep {
+  margin: 0 8px;
+  color: var(--c-border-strong);
 }
 </style>
