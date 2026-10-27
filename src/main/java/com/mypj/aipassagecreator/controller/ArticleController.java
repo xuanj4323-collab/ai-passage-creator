@@ -7,6 +7,7 @@ import com.mypj.aipassagecreator.common.DeleteRequest;
 import com.mypj.aipassagecreator.common.ResultUtils;
 import com.mypj.aipassagecreator.exception.ErrorCode;
 import com.mypj.aipassagecreator.exception.ThrowUtils;
+import com.mypj.aipassagecreator.manager.ArticleStreamBuffer;
 import com.mypj.aipassagecreator.manager.SseEmitterManager;
 import com.mypj.aipassagecreator.model.dto.article.*;
 import com.mypj.aipassagecreator.model.entity.User;
@@ -47,6 +48,9 @@ public class ArticleController {
 
     @Resource
     private SseEmitterManager sseEmitterManager;
+
+    @Resource
+    private ArticleStreamBuffer articleStreamBuffer;
 
     @Resource
     private UserService userService;
@@ -131,6 +135,22 @@ public class ArticleController {
             return;
         }
 
+        // 阶段3生成中：正文是逐字符推送的，而且生成期间不落库。
+        // 不补发的话，用户此刻刷新页面会看到正文区一片空白，
+        // 且没有任何信息表明任务仍在正常推进。
+        // 补发格式与实时推送完全一致（AGENT3_STREAMING），前端只管往后追加。
+        if (phase == ArticlePhaseEnum.CONTENT_GENERATING) {
+            String partialContent = articleStreamBuffer.get(taskId);
+            if (partialContent != null && !partialContent.isEmpty()) {
+                Map<String, Object> streamingPayload = new HashMap<>();
+                streamingPayload.put("type", SseMessageTypeEnum.AGENT3_STREAMING.getValue());
+                streamingPayload.put("content", partialContent);
+                sseEmitterManager.send(taskId, GsonUtils.toJson(streamingPayload));
+                log.info("阶段3正文快照已补发, taskId={}, chars={}", taskId, partialContent.length());
+            }
+            return;
+        }
+
         Map<String, Object> payload = new HashMap<>();
         switch (phase) {
             case TITLE_SELECTING -> {
@@ -142,7 +162,8 @@ public class ArticleController {
                 payload.put("outline", detail.getOutline());
             }
             default -> {
-                // PENDING / *_GENERATING：没有可补的完成态数据，等待真实推送即可
+                // PENDING / TITLE_GENERATING / OUTLINE_GENERATING：
+                // 这些阶段没有可补的完成态数据，等待真实推送即可
                 return;
             }
         }

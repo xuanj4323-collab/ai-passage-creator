@@ -3,6 +3,7 @@ package com.mypj.aipassagecreator.service;
 import com.google.gson.reflect.TypeToken;
 import com.mypj.aipassagecreator.agent.ArticleAgentOrchestrator;
 import com.mypj.aipassagecreator.config.AgentConfig;
+import com.mypj.aipassagecreator.manager.ArticleStreamBuffer;
 import com.mypj.aipassagecreator.manager.SseEmitterManager;
 import com.mypj.aipassagecreator.model.dto.article.ArticleState;
 import com.mypj.aipassagecreator.model.entity.Article;
@@ -41,6 +42,9 @@ public class ArticleAsyncService {
 
     @Resource
     private AgentConfig agentConfig;
+
+    @Resource
+    private ArticleStreamBuffer articleStreamBuffer;
 
 
 
@@ -264,6 +268,10 @@ public class ArticleAsyncService {
             log.error("阶段3异步任务失败, taskId={}", taskId, e);
 
             failedAndRefundQuota(taskId, loginUser, e);
+        } finally {
+            // 走到这里任务已是终态：成功时正文刚落库、失败时已标记 FAILED，
+            // 缓冲不再需要，及时释放避免长期占内存。
+            articleStreamBuffer.clear(taskId);
         }
     }
 
@@ -302,9 +310,19 @@ public class ArticleAsyncService {
      */
     private void handleAgentMessage(String taskId, String message, ArticleState state) {
         Map<String, Object> data = buildMessageData(message, state);
-        if (data != null) {
-            sseEmitterManager.send(taskId, GsonUtils.toJson(data));
+        if (data == null) {
+            return;
         }
+
+        // 阶段3正文流式：除实时推送外再额外累积一份。
+        // 生成期间正文不落库（只在收尾 saveArticleContent 时整体保存），
+        // 用户此刻刷新页面，已生成的部分就会永久丢失、界面一片空白。
+        // 这份缓冲供 getProgress 建连时补发，见 ArticleController#sendPhaseSnapshot。
+        if (SseMessageTypeEnum.AGENT3_STREAMING.getValue().equals(data.get("type"))) {
+            articleStreamBuffer.append(taskId, (String) data.get("content"));
+        }
+
+        sseEmitterManager.send(taskId, GsonUtils.toJson(data));
     }
 
     /**
