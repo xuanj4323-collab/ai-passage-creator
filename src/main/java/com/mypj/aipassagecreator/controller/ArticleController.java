@@ -14,7 +14,9 @@ import com.mypj.aipassagecreator.model.enums.ArticlePhaseEnum;
 import com.mypj.aipassagecreator.model.enums.ArticleStatusEnum;
 import com.mypj.aipassagecreator.model.enums.ArticleStyleEnum;
 import com.mypj.aipassagecreator.model.enums.SseMessageTypeEnum;
+import com.mypj.aipassagecreator.model.vo.AgentExecutionStats;
 import com.mypj.aipassagecreator.model.vo.ArticleVO;
+import com.mypj.aipassagecreator.service.AgentLogService;
 import com.mypj.aipassagecreator.service.ArticleAsyncService;
 import com.mypj.aipassagecreator.service.ArticleService;
 import com.mypj.aipassagecreator.service.UserService;
@@ -304,5 +306,22 @@ public class ArticleController {
 
         return ResultUtils.success(result);
     }
+
+    @Resource
+    private AgentLogService agentLogService;
+
+    /**
+     * 获取任务执行日志
+     */
+    @GetMapping("/execution-logs/{taskId}")
+    @Operation(summary = "获取任务执行日志")
+    public BaseResponse<AgentExecutionStats> getExecutionLogs(@PathVariable String taskId) {
+        ThrowUtils.throwIf(taskId == null || taskId.trim().isEmpty(),
+                ErrorCode.PARAMS_ERROR, "任务ID不能为空");
+
+        AgentExecutionStats stats = agentLogService.getExecutionStats(taskId);
+        return ResultUtils.success(stats);
+    }
+
 }
 
