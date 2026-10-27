@@ -123,6 +123,15 @@
         </div>
       </section>
 
+      <!-- 智能体执行日志：排查某个环节为什么慢或者失败 -->
+      <section class="block logs-section">
+        <h2 class="section-title">
+          <RobotOutlined class="section-icon" />
+          智能体执行日志
+        </h2>
+        <ExecutionLogsPanel :task-id="String(route.params.taskId ?? '')" />
+      </section>
+
       <a-empty v-if="!hasContent" description="文章暂无内容" />
     </article>
 
@@ -151,8 +160,10 @@ import {
   FileTextOutlined,
   OrderedListOutlined,
   PictureOutlined,
+  RobotOutlined,
 } from '@ant-design/icons-vue'
 import { getArticle } from '@/api/articleController'
+import ExecutionLogsPanel from './components/ExecutionLogsPanel.vue'
 import { markdownToHtml } from '@/utils/markdown'
 import {
   buildArticleMarkdown,

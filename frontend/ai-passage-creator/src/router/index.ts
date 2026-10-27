@@ -33,6 +33,11 @@ const router = createRouter({
       component: () => import('@/pages/vip/VipPage.vue'),
     },
     {
+      path: '/admin/statistics',
+      name: '数据统计',
+      component: () => import('@/pages/admin/StatisticsPage.vue'),
+    },
+    {
       path: '/user/login',
       name: '用户登录',
       component: UserLoginPage,

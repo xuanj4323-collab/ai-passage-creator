@@ -102,6 +102,11 @@ const originItems = [
     title: '会员中心',
   },
   {
+    key: '/admin/statistics',
+    label: '数据统计',
+    title: '数据统计',
+  },
+  {
     key: '/admin/userManage',
     label: '用户管理',
     title: '用户管理',
