@@ -87,6 +87,10 @@ public class AgentExecutionAspect {
 
     /**
      * 从方法参数中提取 taskId
+     * <p>
+     * 优先从 ArticleState 取（多数智能体方法都接收它）；否则按**参数名**匹配 taskId。
+     * 不能"取第一个 String 参数"——例如 {@code aiModifyOutline(String mainTitle, ...)}
+     * 的第一个 String 是标题，会被误当作 taskId 写入日志，导致该条日志无法关联任务。
      */
     private String extractTaskId(ProceedingJoinPoint pjp) {
         Object[] args = pjp.getArgs();
@@ -97,14 +101,21 @@ public class AgentExecutionAspect {
         // 优先从 ArticleState 中获取
         for (Object arg : args) {
             if (arg instanceof ArticleState) {
-                return ((ArticleState) arg).getTaskId();
+                String taskId = ((ArticleState) arg).getTaskId();
+                if (taskId != null && !taskId.isBlank()) {
+                    return taskId;
+                }
             }
         }
 
-        // 尝试从第一个 String 参数获取（可能是 taskId）
-        for (Object arg : args) {
-            if (arg instanceof String) {
-                return (String) arg;
+        // 按参数名精确匹配 taskId
+        MethodSignature signature = (MethodSignature) pjp.getSignature();
+        String[] parameterNames = signature.getParameterNames();
+        if (parameterNames != null) {
+            for (int i = 0; i < args.length && i < parameterNames.length; i++) {
+                if ("taskId".equals(parameterNames[i]) && args[i] instanceof String) {
+                    return (String) args[i];
+                }
             }
         }
 

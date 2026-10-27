@@ -44,5 +44,28 @@ public class AsyncConfig {
 
         return executor;
     }
+
+    /**
+     * 智能体日志写入专用线程池
+     * <p>
+     * 与文章生成池隔离的原因：
+     * 1）日志是旁路数据，优先级低，不应和 AI 生成抢线程；
+     * 2）一次生成会产生 6 条日志，量比生成任务大一个数量级；
+     * 3）拒绝策略用 DiscardPolicy —— 队列满时**丢弃日志**而不是阻塞主流程，
+     *    绝不能因为「记日志」把用户的创作卡住。
+     */
+    @Bean(name = "logExecutor")
+    public Executor logExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(4);
+        executor.setQueueCapacity(500);
+        executor.setThreadNamePrefix("agent-log-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(10);
+        executor.initialize();
+        return executor;
+    }
 }
 

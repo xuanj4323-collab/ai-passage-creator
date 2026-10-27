@@ -4,6 +4,7 @@ import com.mybatisflex.core.BaseMapper;
 import com.mypj.aipassagecreator.model.entity.User;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 @Mapper
@@ -36,5 +37,25 @@ public interface UserMapper extends BaseMapper<User> {
     int revokeVip(@Param("id") Long id,
                   @Param("userRole") String userRole,
                   @Param("quota") int quota);
+
+    /**
+     * 按角色统计用户数。
+     * <p>
+     * 手写 SQL 不会自动追加逻辑删除条件，故显式写 isDelete = 0。
+     *
+     * @param role 角色值（user / vip / admin）
+     * @return 用户数
+     */
+    @Select("SELECT COUNT(*) FROM user WHERE userRole = #{role} AND isDelete = 0")
+    Long countByRole(@Param("role") String role);
+
+    /**
+     * 按角色汇总剩余配额。
+     *
+     * @param role 角色值
+     * @return 剩余配额总和；无记录时返回 0
+     */
+    @Select("SELECT COALESCE(SUM(quota), 0) FROM user WHERE userRole = #{role} AND isDelete = 0")
+    Long sumQuotaByRole(@Param("role") String role);
 }
 

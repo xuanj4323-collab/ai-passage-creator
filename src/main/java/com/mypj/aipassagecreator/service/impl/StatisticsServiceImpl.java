@@ -4,8 +4,6 @@ import com.mybatisflex.core.query.QueryWrapper;
 import com.mypj.aipassagecreator.constant.UserConstant;
 import com.mypj.aipassagecreator.mapper.ArticleMapper;
 import com.mypj.aipassagecreator.mapper.UserMapper;
-import com.mypj.aipassagecreator.model.entity.Article;
-import com.mypj.aipassagecreator.model.entity.User;
 import com.mypj.aipassagecreator.model.enums.ArticleStatusEnum;
 import com.mypj.aipassagecreator.model.vo.StatisticsVO;
 import com.mypj.aipassagecreator.service.AgentLogService;
@@ -18,7 +16,6 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -139,57 +136,33 @@ public class StatisticsServiceImpl implements StatisticsService {
 
     /**
      * 计算平均耗时（从创建到完成的平均时间）
+     * <p>
+     * 交给数据库聚合：原实现会把全部已完成文章拉到内存再求平均，
+     * 数据量增长后既慢又可能 OOM。
      */
     private Integer calculateAvgDuration() {
-        // 查询所有已完成的文章，计算 createTime 到 completedTime 的平均耗时
-        QueryWrapper queryWrapper = QueryWrapper.create()
-                .eq("status", ArticleStatusEnum.COMPLETED.getValue())
-                .isNotNull("completedTime");
-
         try {
-            List<Article> completedArticles = articleMapper.selectListByQuery(queryWrapper);
-            if (completedArticles == null || completedArticles.isEmpty()) {
-                return 0;
-            }
-
-            // 计算每篇文章的耗时（毫秒）
-            double avgDuration = completedArticles.stream()
-                    .filter(article -> article.getCreateTime() != null && article.getCompletedTime() != null)
-                    .mapToLong(article -> {
-                        long createMillis = java.sql.Timestamp.valueOf(article.getCreateTime()).getTime();
-                        long completedMillis = java.sql.Timestamp.valueOf(article.getCompletedTime()).getTime();
-                        return completedMillis - createMillis;
-                    })
-                    .average()
-                    .orElse(0.0);
-
-            return (int) avgDuration;
+            Double avgMs = articleMapper.avgCompletedDurationMs();
+            return avgMs != null ? (int) Math.round(avgMs) : 0;
         } catch (Exception e) {
             log.warn("计算平均耗时失败", e);
+            return 0;
         }
-
-        return 0;
     }
 
     /**
      * 统计活跃用户数（本周有创作的用户）
+     * <p>
+     * 用 COUNT(DISTINCT userId) 让数据库去重，避免拉全量文章到内存。
      */
     private Long countActiveUsers(LocalDateTime weekStart) {
-        QueryWrapper queryWrapper = QueryWrapper.create()
-                .ge("createTime", weekStart);
-
         try {
-            List<Article> articles = articleMapper.selectListByQuery(queryWrapper);
-            // 统计去重后的用户数
-            return articles.stream()
-                    .map(Article::getUserId)
-                    .distinct()
-                    .count();
+            Long count = articleMapper.countDistinctUsersSince(weekStart);
+            return count != null ? count : 0L;
         } catch (Exception e) {
             log.warn("统计活跃用户失败", e);
+            return 0L;
         }
-
-        return 0L;
     }
 
     /**
@@ -203,34 +176,32 @@ public class StatisticsServiceImpl implements StatisticsService {
      * 统计 VIP 用户数
      */
     private Long countVipUsers() {
-        QueryWrapper queryWrapper = QueryWrapper.create()
-                .eq("userRole", UserConstant.VIP_ROLE);
-        return userMapper.selectCountByQuery(queryWrapper);
+        Long count = userMapper.countByRole(UserConstant.VIP_ROLE);
+        return count != null ? count : 0L;
     }
 
     /**
      * 计算配额使用量
+     * <p>
+     * 口径：普通用户数 × 默认配额 - 剩余配额总和。
+     * 注意该口径隐含「每个普通用户初始配额都是默认值」的前提；
+     * 若将来支持活动赠送/调整默认值，应改为统计实际消耗流水。
      */
     private Long calculateQuotaUsed() {
-        // 配额使用量 = (普通用户数 * 初始配额) - 当前剩余配额总和
-        QueryWrapper normalUserWrapper = QueryWrapper.create()
-                .eq("userRole", UserConstant.DEFAULT_ROLE);
-
         try {
-            List<User> normalUsers = userMapper.selectListByQuery(normalUserWrapper);
-            Long normalUserCount = (long) normalUsers.size();
+            Long normalUserCount = userMapper.countByRole(UserConstant.DEFAULT_ROLE);
+            Long remainingQuota = userMapper.sumQuotaByRole(UserConstant.DEFAULT_ROLE);
 
-            // 统计剩余配额总和
-            long remainingQuota = normalUsers.stream()
-                    .mapToInt(user -> user.getQuota() != null ? user.getQuota() : 0)
-                    .sum();
+            long count = normalUserCount != null ? normalUserCount : 0L;
+            long remaining = remainingQuota != null ? remainingQuota : 0L;
 
-            return (normalUserCount * UserConstant.DEFAULT_QUOTA) - remainingQuota;
+            long used = (count * UserConstant.DEFAULT_QUOTA) - remaining;
+            // 赠送配额会让 remaining 超过初始总额，兜底避免负数
+            return Math.max(used, 0L);
         } catch (Exception e) {
             log.warn("计算配额使用量失败", e);
+            return 0L;
         }
-
-        return 0L;
     }
 
     /**

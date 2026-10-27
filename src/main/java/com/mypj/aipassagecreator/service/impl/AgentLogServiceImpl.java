@@ -23,7 +23,7 @@ import java.util.Map;
 public class AgentLogServiceImpl extends ServiceImpl<AgentLogMapper, AgentLog> implements AgentLogService {
 
     @Override
-    @Async
+    @Async("logExecutor")
     public void saveLogAsync(AgentLog agentLog) {
         try {
             this.save(agentLog);

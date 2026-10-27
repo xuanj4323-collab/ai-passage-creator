@@ -4,7 +4,10 @@ import com.mybatisflex.core.BaseMapper;
 import com.mypj.aipassagecreator.model.entity.Article;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
+
+import java.time.LocalDateTime;
 
 @Mapper
 public interface ArticleMapper extends BaseMapper<Article> {
@@ -54,4 +57,29 @@ public interface ArticleMapper extends BaseMapper<Article> {
     int updateArticlePhase(@Param("taskId") String taskId,
                             @Param("fromPhase") String fromPhase,
                             @Param("toPhase") String toPhase);
+
+    /**
+     * 统计指定时间点之后有创作行为的去重用户数（活跃用户）。
+     * <p>
+     * 用 SQL 聚合而非「查全部文章再 stream().distinct()」：后者会随数据量线性吃内存。
+     * 手写 SQL 不会自动追加逻辑删除条件，故显式写 isDelete = 0。
+     *
+     * @param start 起始时间
+     * @return 去重用户数
+     */
+    @Select("SELECT COUNT(DISTINCT userId) FROM article " +
+            "WHERE createTime >= #{start} AND isDelete = 0")
+    Long countDistinctUsersSince(@Param("start") LocalDateTime start);
+
+    /**
+     * 已完成文章的平均生成耗时（毫秒）。
+     * <p>
+     * TIMESTAMPDIFF 以微秒为单位求差，AVG 后除以 1000 转成毫秒；
+     * 无数据时 AVG 返回 NULL，映射为 Java null，由调用方兜底。
+     *
+     * @return 平均耗时（毫秒），无数据时返回 null
+     */
+    @Select("SELECT AVG(TIMESTAMPDIFF(MICROSECOND, createTime, completedTime)) / 1000 " +
+            "FROM article WHERE status = 'COMPLETED' AND completedTime IS NOT NULL AND isDelete = 0")
+    Double avgCompletedDurationMs();
 }
