@@ -22,8 +22,8 @@
           <h1 class="identity-name">{{ user.userName || '未设置昵称' }}</h1>
           <p class="identity-account">@{{ user.userAccount }}</p>
           <div class="identity-tags">
-            <span class="tag">{{ roleLabel }}</span>
-            <span v-if="isVip" class="tag tag-vip">会员</span>
+            <!-- 角色标签本身按会员着色，避免再叠一个重复的「会员」标签 -->
+            <span class="tag" :class="{ 'tag-vip': isVip }">{{ roleLabel }}</span>
           </div>
           <p class="identity-bio">{{ user.userProfile || '还没有填写个人简介' }}</p>
         </div>
@@ -51,8 +51,12 @@
               <div class="meta-row"><dt>角色</dt><dd>{{ roleLabel }}</dd></div>
               <div class="meta-row"><dt>注册时间</dt><dd>{{ formatDate(user.createTime) }}</dd></div>
               <div v-if="isVip" class="meta-row">
-                <dt>会员到期</dt>
-                <dd>{{ formatDate(user.vipTime) }}</dd>
+                <!-- vipTime 记录的是开通时间；会员开通后永久有效，不存在到期日 -->
+                <dt>会员开通</dt>
+                <dd>
+                  {{ formatDate(user.vipTime) }}
+                  <span class="meta-note">永久有效</span>
+                </dd>
               </div>
             </dl>
           </section>
@@ -504,6 +508,13 @@ onMounted(async () => {
 .meta-row dd {
   margin: 0;
   color: var(--c-text-1);
+  text-align: right;
+}
+
+.meta-note {
+  margin-left: 6px;
+  font-size: 12px;
+  color: var(--c-accent);
 }
 
 /* 响应式 */
