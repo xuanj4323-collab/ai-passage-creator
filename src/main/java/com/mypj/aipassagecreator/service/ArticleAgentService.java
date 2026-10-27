@@ -257,6 +257,9 @@ public class ArticleAgentService {
     /**
      * AI 修改大纲
      *
+     * @param taskId           任务ID（不参与业务逻辑，但必须传入：
+     *                         {@code @AgentExecution} 切面依赖它把执行日志关联到具体任务，
+     *                         缺失会导致该条日志的 taskId 变成 unknown）
      * @param mainTitle        主标题
      * @param subTitle         副标题
      * @param currentOutline   当前大纲
@@ -264,7 +267,7 @@ public class ArticleAgentService {
      * @return 修改后的大纲
      */
     @AgentExecution(value = "ai_modify_outline", description = "AI修改大纲")
-    public List<ArticleState.OutlineSection> aiModifyOutline(String mainTitle, String subTitle,
+    public List<ArticleState.OutlineSection> aiModifyOutline(String taskId, String mainTitle, String subTitle,
                                                              List<ArticleState.OutlineSection> currentOutline,
                                                              String modifySuggestion) {
         String currentOutlineJson = GsonUtils.toJson(currentOutline);

@@ -346,8 +346,9 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
                 new TypeToken<List<ArticleState.OutlineSection>>(){}
         );
 
-        // 调用 AI 修改大纲
+        // 调用 AI 修改大纲（传入 taskId 以便 @AgentExecution 切面把日志关联到任务）
         List<ArticleState.OutlineSection> modifiedOutline = articleAgentService.aiModifyOutline(
+                taskId,
                 article.getMainTitle(),
                 article.getSubTitle(),
                 currentOutline,
