@@ -35,3 +35,8 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### 部署密钥 ###
+# 由 docker/gen-env.ps1 生成，含明文密钥，绝不入库
+.env
+.env.local

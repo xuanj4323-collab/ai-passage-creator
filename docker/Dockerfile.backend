@@ -1,0 +1,52 @@
+# syntax=docker/dockerfile:1
+# ============================================================
+# 后端镜像（多阶段构建）
+#
+#   阶段1 用 maven+JDK21 编译打包，阶段2 只把 jar 放进 JRE 镜像。
+#   这样做的好处：最终镜像里没有 Maven、源码和构建缓存，
+#   体积从 ~700MB 降到 ~300MB，攻击面也更小。
+#
+#   构建上下文是项目根目录（见 docker-compose.yml 的 context: .）
+# ============================================================
+
+# ---------- 阶段 1：构建 ----------
+FROM maven:3.9-eclipse-temurin-21 AS build
+WORKDIR /build
+
+# 容器内没有宿主机的 ~/.m2 缓存，走公网下载，换成阿里云镜像加速
+COPY docker/maven-settings.xml /root/.m2/settings.xml
+
+# 只拷 pom 先解析依赖：只要 pom.xml 没变，这一层就命中缓存，
+# 之后改业务代码不会触发上百个依赖重新下载。
+# go-offline 对某些插件可能失败，用 || true 兜底，真正的构建在下一步会暴露问题。
+COPY pom.xml .
+RUN mvn -B -q -s /root/.m2/settings.xml dependency:go-offline -DskipTests || true
+
+COPY src ./src
+RUN mvn -B -q -s /root/.m2/settings.xml clean package -DskipTests \
+ && rm -f target/*.jar.original \
+ && cp target/*.jar /build/app.jar
+
+# ---------- 阶段 2：运行 ----------
+FROM eclipse-temurin:21-jre
+
+# 时区必须显式设置，否则容器默认 UTC，
+# 写入数据库的时间和日志时间会整体偏移 8 小时
+ENV TZ=Asia/Shanghai \
+    JAVA_OPTS="-XX:MaxRAMPercentage=75 -Duser.timezone=Asia/Shanghai -Dfile.encoding=UTF-8"
+
+WORKDIR /app
+
+# 非 root 运行：即使应用被攻破，也拿不到容器内的 root 权限
+RUN groupadd -r app && useradd -r -g app -d /app app \
+ && mkdir -p /app/logs && chown -R app:app /app
+
+COPY --from=build /build/app.jar /app/app.jar
+RUN chown app:app /app/app.jar
+
+USER app
+EXPOSE 8567
+
+# 用 exec 形式启动，确保 java 是 PID 1，
+# 这样 docker stop 发出的 SIGTERM 能直接送达 JVM，触发优雅关闭
+ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar /app/app.jar"]

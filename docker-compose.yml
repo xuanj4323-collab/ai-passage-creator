@@ -1,0 +1,126 @@
+# ============================================================
+# 一键起整套服务：docker compose up -d --build
+#
+# 端口映射刻意错开了宿主机已占用的端口：
+#   宿主机 3306/6379 可能是本地 MySQL/Redis，8567/8090 是手工部署时用的
+#   容器对外：MySQL 3307、Redis 6380、后端 8568、前端 8080
+#
+# 敏感信息全部来自同目录的 .env（已被 .gitignore 忽略），
+# 首次使用先跑：powershell -File docker\gen-env.ps1
+# ============================================================
+
+name: ai-passage-creator
+
+services:
+  # ---------------- MySQL ----------------
+  mysql:
+    image: mysql:8.0
+    container_name: apc-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      # 容器首次启动会自动建这个库；建库脚本里也有 create database，不冲突
+      MYSQL_DATABASE: ai_passage_creator
+      TZ: Asia/Shanghai
+      # 关键：没有 UTF-8 locale 时，mysql 客户端默认用 latin1 连接，
+      # 初始化脚本里的中文会被静默替换成 ?（表注释、种子数据都会乱码）
+      LANG: C.UTF-8
+    command:
+      # 显式指定字符集与时区，避免中文乱码和写入时间偏移 8 小时
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+08:00
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      # 只在数据目录为空（首次初始化）时执行，重建容器不会重复跑
+      - ./docker/mysql-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # $$ 是 compose 的转义，让密码在容器内展开，不出现在宿主机进程列表里
+      test: [ "CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent" ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      # 首次启动要导入建表脚本，给足 60 秒，否则健康检查会在初始化中途就判失败
+      start_period: 60s
+
+  # ---------------- Redis ----------------
+  redis:
+    image: redis:7-alpine
+    container_name: apc-redis
+    restart: unless-stopped
+    command: [ "redis-server", "--appendonly", "yes", "--save", "60", "1" ]
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # ---------------- 后端 ----------------
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    image: apc-backend:local
+    container_name: apc-backend
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+
+      # 关键：application-prod.yml 里写的是 localhost:3306，
+      # 容器内 localhost 指向自己，连不上 MySQL。
+      # 用 Spring Boot 的环境变量覆盖机制改指向 compose 网络里的服务名。
+      SPRING_DATASOURCE_URL: "jdbc:mysql://mysql:3306/ai_passage_creator?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true"
+      SPRING_DATASOURCE_USERNAME: root
+      Mysql_Password: ${MYSQL_ROOT_PASSWORD}
+
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+
+      # 业务密钥
+      DS_API_KEY: ${DS_API_KEY}
+      Unsplash_Access_Key: ${Unsplash_Access_Key}
+      OSS_ACCESS_KEY_ID: ${OSS_ACCESS_KEY_ID}
+      OSS_ACCESS_KEY_SECRET: ${OSS_ACCESS_KEY_SECRET}
+      ALY_API_KEY: ${ALY_API_KEY}
+      STRIPE_API_KEY: ${STRIPE_API_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:8080}
+
+      TZ: Asia/Shanghai
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      # 只为调试方便（直连后端 /doc.html），正常访问走 nginx 的 8080
+      - "8568:8567"
+    volumes:
+      - app-logs:/app/logs
+
+  # ---------------- Nginx + 前端 ----------------
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    image: apc-frontend:local
+    container_name: apc-nginx
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    # 注意：这里只保证启动顺序，不保证后端已就绪。
+    # 后端启动约 7~10 秒，期间访问 8080 会短暂返回 502，属正常现象。
+    # 若要消除这段窗口，可给 backend 加 healthcheck（基础 JRE 镜像缺 curl，需自行补装）。
+
+volumes:
+  mysql-data:
+  redis-data:
+  app-logs:

@@ -1,0 +1,41 @@
+# ============================================================
+# 构建上下文裁剪
+#
+# 后端多阶段构建会自己在容器内编译，前端也会重新 npm ci + build，
+# 所以宿主机上的产物和依赖都不该塞进镜像上下文——
+# 既拖慢构建（node_modules 有几百 MB），也可能把本地产物误打进镜像。
+# ============================================================
+
+# 构建产物
+target/
+build/
+dist/
+**/dist/
+frontend/*/dist/
+
+# 依赖
+node_modules/
+**/node_modules/
+
+# 版本控制与 IDE
+.git/
+.gitignore
+.idea/
+.vscode/
+*.iml
+
+# 运行期产物
+logs/
+**/logs/
+*.log
+
+# 密钥：绝对不进镜像。容器运行时的密钥由 compose 的 environment 注入
+.env
+.env.*
+
+# 文档与无关文件
+*.md
+!README.md
+sql/
+HELP.md
+style-preview.html
