@@ -21,7 +21,14 @@
         <template v-if="loginUserStore.loginUser.id">
           <!-- 头像与昵称直接进个人中心，不依赖下拉弹层的点击 -->
           <RouterLink to="/user/profile" class="user-link" title="进入个人中心">
-            <a-avatar :size="28" class="user-avatar">{{ avatarInitial }}</a-avatar>
+            <!-- 有头像就显示图片，没有则回退成昵称首字 -->
+            <a-avatar
+              :size="28"
+              :src="loginUserStore.loginUser.userAvatar || undefined"
+              class="user-avatar"
+            >
+              {{ avatarInitial }}
+            </a-avatar>
             <span class="user-name">{{ loginUserStore.loginUser.userName ?? '无名' }}</span>
             <span v-if="loginUserStore.loginUser.userRole === 'vip'" class="vip-tag">VIP</span>
           </RouterLink>
