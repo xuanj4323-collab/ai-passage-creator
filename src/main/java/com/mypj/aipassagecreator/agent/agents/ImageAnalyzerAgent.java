@@ -1,5 +1,6 @@
 package com.mypj.aipassagecreator.agent.agents;
 
+import com.mypj.aipassagecreator.annotation.AgentExecution;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.mypj.aipassagecreator.constant.PromptConstant;
@@ -36,6 +37,7 @@ public class ImageAnalyzerAgent implements NodeAction {
     public static final String OUTPUT_IMAGE_REQUIREMENTS = "imageRequirements";
 
     @Override
+    @AgentExecution(value = "agent_analyze_image_requirements", description = "分析配图需求")
     public Map<String, Object> apply(OverAllState state) throws Exception {
         String mainTitle = state.value(INPUT_MAIN_TITLE)
                 .map(Object::toString)

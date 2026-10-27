@@ -1,6 +1,7 @@
 package com.mypj.aipassagecreator.agent.agents;
 
 
+import com.mypj.aipassagecreator.annotation.AgentExecution;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.mypj.aipassagecreator.agent.tools.ImageGenerationTool;
@@ -28,6 +29,7 @@ public class ContentMergerAgent implements NodeAction {
     public static final String OUTPUT_FULL_CONTENT = "fullContent";
 
     @Override
+    @AgentExecution(value = "merge_images_into_content", description = "图文合成")
     public Map<String, Object> apply(OverAllState state) throws Exception {
         String content = state.value(INPUT_CONTENT)
                 .map(Object::toString)

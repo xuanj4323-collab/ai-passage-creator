@@ -1,5 +1,6 @@
 package com.mypj.aipassagecreator.agent.agents;
 
+import com.mypj.aipassagecreator.annotation.AgentExecution;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.google.gson.reflect.TypeToken;
@@ -34,6 +35,7 @@ public class TitleGeneratorAgent implements NodeAction {
     public static final String OUTPUT_TITLE_OPTIONS = "titleOptions";
 
     @Override
+    @AgentExecution(value = "agent_generate_title_options", description = "生成标题方案")
     public Map<String, Object> apply(OverAllState state) throws Exception {
         String topic = state.value(INPUT_TOPIC)
                 .map(Object::toString)

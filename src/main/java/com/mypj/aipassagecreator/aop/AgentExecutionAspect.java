@@ -1,5 +1,6 @@
 package com.mypj.aipassagecreator.aop;
 
+import com.alibaba.cloud.ai.graph.OverAllState;
 import com.mypj.aipassagecreator.annotation.AgentExecution;
 import com.mypj.aipassagecreator.model.dto.article.ArticleState;
 import com.mypj.aipassagecreator.model.entity.AgentLog;
@@ -27,6 +28,11 @@ import java.util.Map;
 @Component
 @Slf4j
 public class AgentExecutionAspect {
+
+    /**
+     * 图状态中 taskId 的键名，需与 ArticleAgentOrchestrator.KEY_TASK_ID 保持一致
+     */
+    private static final String TASK_ID_KEY = "taskId";
 
     @Resource
     private AgentLogService agentLogService;
@@ -88,7 +94,11 @@ public class AgentExecutionAspect {
     /**
      * 从方法参数中提取 taskId
      * <p>
-     * 优先从 ArticleState 取（多数智能体方法都接收它）；否则按**参数名**匹配 taskId。
+     * 支持三种形态：
+     * 1）{@link ArticleState}（ArticleAgentService 的旧直调方式）；
+     * 2）{@link OverAllState}（StateGraph 的 NodeAction.apply，taskId 存在图状态里）；
+     * 3）参数名精确匹配 taskId。
+     * <p>
      * 不能"取第一个 String 参数"——例如 {@code aiModifyOutline(String mainTitle, ...)}
      * 的第一个 String 是标题，会被误当作 taskId 写入日志，导致该条日志无法关联任务。
      */
@@ -98,7 +108,7 @@ public class AgentExecutionAspect {
             return "unknown";
         }
 
-        // 优先从 ArticleState 中获取
+        // 1）优先从 ArticleState 中获取
         for (Object arg : args) {
             if (arg instanceof ArticleState) {
                 String taskId = ((ArticleState) arg).getTaskId();
@@ -108,12 +118,24 @@ public class AgentExecutionAspect {
             }
         }
 
-        // 按参数名精确匹配 taskId
+        // 2）Graph 节点：NodeAction.apply(OverAllState)，taskId 在图状态里
+        for (Object arg : args) {
+            if (arg instanceof OverAllState) {
+                String taskId = ((OverAllState) arg).value(TASK_ID_KEY)
+                        .map(Object::toString)
+                        .orElse(null);
+                if (taskId != null && !taskId.isBlank()) {
+                    return taskId;
+                }
+            }
+        }
+
+        // 3）按参数名精确匹配 taskId
         MethodSignature signature = (MethodSignature) pjp.getSignature();
         String[] parameterNames = signature.getParameterNames();
         if (parameterNames != null) {
             for (int i = 0; i < args.length && i < parameterNames.length; i++) {
-                if ("taskId".equals(parameterNames[i]) && args[i] instanceof String) {
+                if (TASK_ID_KEY.equals(parameterNames[i]) && args[i] instanceof String) {
                     return (String) args[i];
                 }
             }

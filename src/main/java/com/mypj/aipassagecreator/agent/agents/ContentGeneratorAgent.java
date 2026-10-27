@@ -1,5 +1,6 @@
 package com.mypj.aipassagecreator.agent.agents;
 
+import com.mypj.aipassagecreator.annotation.AgentExecution;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.mypj.aipassagecreator.agent.context.StreamHandlerContext;
@@ -38,6 +39,7 @@ public class ContentGeneratorAgent implements NodeAction {
     public static final String OUTPUT_CONTENT = "content";
 
     @Override
+    @AgentExecution(value = "agent_generate_content", description = "生成正文")
     public Map<String, Object> apply(OverAllState state) throws Exception {
         String mainTitle = state.value(INPUT_MAIN_TITLE)
                 .map(Object::toString)

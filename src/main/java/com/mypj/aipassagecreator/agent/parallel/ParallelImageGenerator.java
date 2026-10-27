@@ -1,6 +1,7 @@
 package com.mypj.aipassagecreator.agent.parallel;
 
 
+import com.mypj.aipassagecreator.annotation.AgentExecution;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import com.mypj.aipassagecreator.agent.context.StreamHandlerContext;
@@ -35,6 +36,7 @@ public class ParallelImageGenerator implements NodeAction {
     public static final String OUTPUT_IMAGES = "images";
 
     @Override
+    @AgentExecution(value = "agent_generate_images", description = "生成配图")
     public Map<String, Object> apply(OverAllState state) throws Exception {
         @SuppressWarnings("unchecked")
         List<ArticleState.ImageRequirement> imageRequirements = state.value(INPUT_IMAGE_REQUIREMENTS)
