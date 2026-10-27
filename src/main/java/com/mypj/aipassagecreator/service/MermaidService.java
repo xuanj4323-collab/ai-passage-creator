@@ -118,8 +118,8 @@ public class MermaidService implements ImageSearchService {
      */
     private void convertMermaidToImage(File inputFile, File outputFile) {
         try {
-            // 根据操作系统选择命令
-            String command = SystemUtil.getOsInfo().isWindows() ? mermaidConfig.getCliCommand() : "mmdc";
+            // 根据操作系统解析命令
+            String command = resolveCliCommand();
 
             // 构建命令行参数
             String cmdLine = String.format("%s -i %s -o %s -b %s",
@@ -162,7 +162,7 @@ public class MermaidService implements ImageSearchService {
     public boolean isAvailable() {
         try {
             // 检查 mermaid-cli 是否已安装
-            String command = SystemUtil.getOsInfo().isWindows() ? "mmdc.cmd" : mermaidConfig.getCliCommand();
+            String command = resolveCliCommand();
             String checkCmd = command + " --version";
             String version = RuntimeUtil.execForStr(checkCmd);
             log.info("Mermaid CLI 版本: {}", version);
@@ -171,6 +171,28 @@ public class MermaidService implements ImageSearchService {
             log.warn("Mermaid CLI 不可用: {}", e.getMessage());
             return false;
         }
+    }
+
+    /**
+     * 解析 mmdc 可执行命令名。
+     * <p>
+     * 配置项 mermaid.cli-command 的默认值是 Windows 下的 mmdc.cmd。
+     * 之前"检测"和"执行"两处各自用三元表达式判断平台，结果互相矛盾：
+     * 执行时 Linux 硬编码用 mmdc，检测时 Linux 却去读配置里的 mmdc.cmd，
+     * 导致 Linux 上明明装了 mermaid-cli，isAvailable() 却恒为 false。
+     * 这里收敛成一个方法，两处共用，避免再次跑偏。
+     */
+    private String resolveCliCommand() {
+        String configured = mermaidConfig.getCliCommand();
+        if (SystemUtil.getOsInfo().isWindows()) {
+            return (configured == null || configured.isBlank()) ? "mmdc.cmd" : configured;
+        }
+        // 非 Windows：配置若仍是 Windows 的默认值（或为空），说明没针对平台改过，
+        // 用 mermaid-cli 在 Linux/Mac 上的真实命令名兜底；显式配置了则尊重配置。
+        if (configured == null || configured.isBlank() || "mmdc.cmd".equals(configured)) {
+            return "mmdc";
+        }
+        return configured;
     }
 }
 

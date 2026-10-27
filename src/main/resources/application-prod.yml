@@ -1,0 +1,52 @@
+# ============================================================
+# 生产环境配置
+#   启动方式：java -jar app.jar --spring.profiles.active=prod
+#   或设置环境变量 SPRING_PROFILES_ACTIVE=prod
+#
+# 设计原则：
+#   1. 本文件只放"与开发环境不同"的项，公共项继承 application.yml
+#   2. 不出现任何明文密钥，敏感信息一律走环境变量
+#   3. 关闭所有开发期便利功能（SQL 日志、绝对路径日志、Windows 专用命令）
+# 因此本文件可以、也应该提交到 Git。
+# ============================================================
+
+spring:
+  datasource:
+    # 显式补齐时区与字符集，避免服务器时区不同导致时间错位、中文乱码
+    # 本机验证用 localhost；换成服务器/容器时改成实际地址（如 mysql:3306）
+    url: jdbc:mysql://localhost:3306/ai_passage_creator?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+
+logging:
+  # 相对工作目录，不再写死 F:\ 这种 Windows 绝对路径
+  file:
+    name: logs/ai-passage-creator.log
+  level:
+    root: info
+    com.mypj.aipassagecreator: info
+
+mybatis-flex:
+  configuration:
+    # 关键：开发环境用 StdOutImpl，每条 SQL 都往 stdout 打印。
+    # 生产环境必须关掉，否则日志量暴涨、吞吐明显下降。
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+
+mermaid:
+  # Linux / macOS 上 mermaid-cli 安装后的命令名是 mmdc，不是 mmdc.cmd。
+  # 不装 mermaid-cli 时 isAvailable() 返回 false，会自动降级到兜底图片，不影响启动。
+  cli-command: mmdc
+
+stripe:
+  # 支付完成后浏览器跳回的前端地址。
+  # 本机验证默认走 vite preview 的 4173 端口；上线时把 APP_BASE_URL 换成正式域名即可，
+  # 例如：APP_BASE_URL=https://ai.example.com
+  success-url: ${APP_BASE_URL:http://localhost:4173}/vip?success=true
+  cancel-url: ${APP_BASE_URL:http://localhost:4173}/vip?cancelled=true
+
+# 说明：对外公开发布时建议打开下面的开关，避免把全部接口结构暴露出去。
+# 本地验证阶段保持关闭状态，方便访问 /api/doc.html 核对接口。
+# knife4j:
+#   enable: false
