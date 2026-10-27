@@ -23,5 +23,9 @@ public class LoginUserVO implements Serializable {
     private LocalDateTime vipTime;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
+    /**
+     * 剩余创作额度（管理员与 VIP 不消耗额度，前端据此展示「不限」）
+     */
+    private Integer quota;
 }
 

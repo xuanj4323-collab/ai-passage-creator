@@ -202,6 +202,7 @@ declare namespace API {
     vipTime?: string;
     createTime?: string;
     updateTime?: string;
+    quota?: number;
   };
 
   type OutlineItem = {

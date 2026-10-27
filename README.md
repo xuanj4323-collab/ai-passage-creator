@@ -263,8 +263,11 @@ ai-passage-creator/
 | --- | --- | --- | --- |
 | POST | `/user/register` | 用户注册 | 公开 |
 | POST | `/user/login` | 用户登录 | 公开 |
-| GET | `/user/get/login` | 获取当前登录用户 | 登录 |
+| GET | `/user/get/login` | 获取当前登录用户（含剩余额度） | 登录 |
 | POST | `/user/logout` | 用户注销 | 登录 |
+| POST | `/user/update/my` | 修改自己的昵称 / 头像 / 简介 | 登录 |
+| POST | `/user/update/password` | 修改自己的密码 | 登录 |
+| POST | `/user/avatar` | 上传头像（multipart，≤ 2MB，存 OSS） | 登录 |
 | POST | `/user/add` | 创建用户 | 管理员 |
 | GET | `/user/get` | 根据 id 获取用户（实体） | 管理员 |
 | GET | `/user/get/vo` | 根据 id 获取用户（脱敏） | 管理员 |

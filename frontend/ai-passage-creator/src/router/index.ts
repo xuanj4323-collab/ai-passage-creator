@@ -48,6 +48,11 @@ const router = createRouter({
       component: UserRegisterPage,
     },
     {
+      path: '/user/profile',
+      name: '个人中心',
+      component: () => import('@/pages/user/UserProfilePage.vue'),
+    },
+    {
       path: '/admin/userManage',
       name: '用户管理',
       component: UserManagePage,

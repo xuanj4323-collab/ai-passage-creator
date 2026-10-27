@@ -27,6 +27,11 @@ spring:
   mvc:
     async:
       request-timeout: 1800000   # 30 分钟，与 SseEmitter 的超时保持一致
+  # 头像等文件上传大小限制（默认 1MB 会拦住 2MB 的头像）
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 2MB
 
 
 server:

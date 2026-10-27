@@ -23,7 +23,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import com.mypj.aipassagecreator.model.entity.User;
 import com.mypj.aipassagecreator.service.UserService;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 
 import java.util.List;
@@ -164,6 +166,37 @@ public class UserController {
         boolean result = userService.updateById(user);
         ThrowUtils.throwIf(!result, ErrorCode.OPERATION_ERROR);
         return ResultUtils.success(true);
+    }
+
+    /**
+     * 修改当前登录用户自己的资料（昵称 / 头像 / 简介）
+     *
+     * 与 /update 的区别：不校验管理员权限，只能改自己，且无法改角色与额度。
+     */
+    @PostMapping("/update/my")
+    public BaseResponse<LoginUserVO> updateMyUser(@RequestBody UserUpdateMyRequest updateRequest,
+                                                  HttpServletRequest request) {
+        ThrowUtils.throwIf(updateRequest == null, ErrorCode.PARAMS_ERROR);
+        return ResultUtils.success(userService.updateMyUser(updateRequest, request));
+    }
+
+    /**
+     * 修改当前登录用户的密码
+     */
+    @PostMapping("/update/password")
+    public BaseResponse<Boolean> updatePassword(@RequestBody UserUpdatePasswordRequest passwordRequest,
+                                                HttpServletRequest request) {
+        ThrowUtils.throwIf(passwordRequest == null, ErrorCode.PARAMS_ERROR);
+        return ResultUtils.success(userService.updatePassword(passwordRequest, request));
+    }
+
+    /**
+     * 上传当前登录用户的头像
+     */
+    @PostMapping("/avatar")
+    public BaseResponse<String> uploadAvatar(@RequestParam("file") MultipartFile file,
+                                             HttpServletRequest request) {
+        return ResultUtils.success(userService.uploadAvatar(file, request));
     }
 
     /**

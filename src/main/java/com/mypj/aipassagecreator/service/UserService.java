@@ -3,11 +3,14 @@ package com.mypj.aipassagecreator.service;
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mybatisflex.core.service.IService;
 import com.mypj.aipassagecreator.model.dto.user.UserQueryRequest;
+import com.mypj.aipassagecreator.model.dto.user.UserUpdateMyRequest;
+import com.mypj.aipassagecreator.model.dto.user.UserUpdatePasswordRequest;
 import com.mypj.aipassagecreator.model.entity.User;
 import com.mypj.aipassagecreator.model.vo.LoginUserVO;
 import com.mypj.aipassagecreator.model.vo.UserVO;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -87,4 +90,31 @@ public interface UserService extends IService<User> {
      * @return
      */
     List<UserVO> getUserVOList(List<User> userList);
+
+    /**
+     * 修改当前登录用户自己的资料（昵称 / 头像 / 简介）
+     *
+     * @param updateRequest 仅包含可改字段
+     * @param request       请求对象
+     * @return 更新后的脱敏用户信息
+     */
+    LoginUserVO updateMyUser(UserUpdateMyRequest updateRequest, HttpServletRequest request);
+
+    /**
+     * 修改当前登录用户的密码
+     *
+     * @param passwordRequest 原密码与新密码
+     * @param request         请求对象
+     * @return 是否修改成功
+     */
+    boolean updatePassword(UserUpdatePasswordRequest passwordRequest, HttpServletRequest request);
+
+    /**
+     * 上传当前登录用户的头像，返回可访问的 URL，并同步写入用户资料
+     *
+     * @param file    头像文件
+     * @param request 请求对象
+     * @return 头像 URL
+     */
+    String uploadAvatar(MultipartFile file, HttpServletRequest request);
 }
