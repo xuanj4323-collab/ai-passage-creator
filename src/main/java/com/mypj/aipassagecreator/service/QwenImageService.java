@@ -38,10 +38,14 @@ public class QwenImageService implements ImageSearchService {
     @PostConstruct
     public void init() {
         Constants.baseHttpApiUrl = qwenImageConfig.getBaseHttpApiUrl();
+        // 超时必须短于上层的整体超时，否则外层的等待形同虚设。
+        // ParallelImageGenerator 给整个配图环节设了 180 秒上限，
+        // 原来这里 readTimeout 是 300 秒——单张就能拖到 5 分钟，
+        // 超过整体上限后线程仍被这个连接占着，累积几次就会拖垮 imageExecutor。
         Constants.connectionConfigurations = ConnectionConfigurations.builder()
-                .connectTimeout(Duration.ofSeconds(30))   // 连接超时，默认 120 秒
-                .readTimeout(Duration.ofSeconds(300))     // 读取超时，默认 300 秒，文生图耗时长可以调大
-                .writeTimeout(Duration.ofSeconds(60))     // 写入超时，默认 60 秒
+                .connectTimeout(Duration.ofSeconds(10))
+                .readTimeout(Duration.ofSeconds(60))      // 通义万相单张通常 10~30 秒，留一倍余量
+                .writeTimeout(Duration.ofSeconds(30))
                 .build();
     }
 

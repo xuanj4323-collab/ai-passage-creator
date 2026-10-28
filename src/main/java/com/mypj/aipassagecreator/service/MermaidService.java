@@ -2,7 +2,6 @@ package com.mypj.aipassagecreator.service;
 
 
 import cn.hutool.core.io.FileUtil;
-import cn.hutool.core.util.RuntimeUtil;
 import cn.hutool.system.SystemUtil;
 import com.mypj.aipassagecreator.config.MermaidConfig;
 import com.mypj.aipassagecreator.model.dto.image.ImageData;
@@ -12,7 +11,12 @@ import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.TimeUnit;
 
 import static com.mypj.aipassagecreator.constant.ArticleConstant.PICSUM_URL_TEMPLATE;
 
@@ -137,15 +141,97 @@ public class MermaidService implements ImageSearchService {
 
             log.info("执行 Mermaid CLI 命令: {}", cmdLine);
 
-            // 执行命令（带超时）
-            String result = RuntimeUtil.execForStr(cmdLine);
+            // 带超时执行：原实现用 RuntimeUtil.execForStr，完全没有超时保护，
+            // mmdc 一旦卡住（Chromium 起不来、渲染进入死循环），调用线程会永久阻塞。
+            // 这条链路跑在 imageExecutor（core=4）上，累积几次就能把配图线程池占满。
+            // 超时时间取自 mermaid.timeout —— 这个配置项此前从未被读取过。
+            long timeoutMs = mermaidConfig.getTimeout() != null ? mermaidConfig.getTimeout() : 30_000L;
+            String result = execWithTimeout(cmdLine, timeoutMs);
 
             log.debug("Mermaid CLI 执行结果: {}", result);
 
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("执行 Mermaid CLI 被中断", e);
+            throw new RuntimeException("Mermaid CLI 执行被中断", e);
         } catch (Exception e) {
             log.error("执行 Mermaid CLI 失败", e);
             throw new RuntimeException("Mermaid CLI 执行失败: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * 带超时执行外部命令。
+     * <p>
+     * 三个必须处理的点：
+     * <ol>
+     *   <li><b>并发读走输出</b>：子进程的 stdout 写满管道缓冲区后会阻塞在 write 上，
+     *       此时父进程还在 waitFor，两边互相等待形成死锁。这是 {@link Process} 最经典的坑。</li>
+     *   <li><b>超时后杀进程树</b>：Windows 上 mmdc.cmd 会派生 node 子进程，
+     *       {@code destroyForcibly} 只能结束 cmd.exe，node 会残留，
+     *       必须用 {@code taskkill /T} 按进程树清理。</li>
+     *   <li><b>中断标志恢复</b>：捕获 InterruptedException 后重新设置中断状态，
+     *       否则上层线程池无法感知取消信号。</li>
+     * </ol>
+     *
+     * @param cmdLine   命令行
+     * @param timeoutMs 超时毫秒数
+     * @return 命令的标准输出（stderr 已合并进来）
+     */
+    private String execWithTimeout(String cmdLine, long timeoutMs) throws IOException, InterruptedException {
+        boolean windows = SystemUtil.getOsInfo().isWindows();
+        ProcessBuilder pb = windows
+                ? new ProcessBuilder("cmd.exe", "/c", cmdLine)
+                : new ProcessBuilder("sh", "-c", cmdLine);
+        // stderr 并入 stdout，避免两路管道都要单独消费
+        pb.redirectErrorStream(true);
+
+        Process process = pb.start();
+
+        StringBuilder output = new StringBuilder();
+        Thread reader = new Thread(() -> {
+            try (BufferedReader br = new BufferedReader(
+                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    output.append(line).append('\n');
+                }
+            } catch (IOException ignored) {
+                // 进程被强杀时管道会提前关闭，属正常情况
+            }
+        }, "mmdc-output-reader");
+        reader.setDaemon(true);
+        reader.start();
+
+        boolean finished = process.waitFor(timeoutMs, TimeUnit.MILLISECONDS);
+        if (!finished) {
+            killProcessTree(process);
+            throw new RuntimeException("Mermaid CLI 执行超时（" + timeoutMs + "ms），已强制终止");
+        }
+
+        // 进程已退出，等读取线程把剩余输出刷完（给个短上限，避免极端情况挂住）
+        reader.join(2000);
+        return output.toString();
+    }
+
+    /**
+     * 结束进程及其派生的子进程。
+     * <p>
+     * Windows 上 mmdc.cmd → node，{@code destroyForcibly} 只能杀掉 cmd.exe，
+     * node 会变成孤儿进程继续占 CPU 和内存，所以先用 taskkill /T 清理整棵树。
+     */
+    private void killProcessTree(Process process) {
+        if (SystemUtil.getOsInfo().isWindows()) {
+            try {
+                new ProcessBuilder("taskkill", "/PID", String.valueOf(process.pid()), "/T", "/F")
+                        .redirectErrorStream(true)
+                        .start()
+                        .waitFor(3, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                log.warn("taskkill 调用失败，回退到 destroyForcibly: {}", e.getMessage());
+            }
+        }
+        process.destroyForcibly();
     }
 
     @Override
@@ -161,12 +247,17 @@ public class MermaidService implements ImageSearchService {
     @Override
     public boolean isAvailable() {
         try {
-            // 检查 mermaid-cli 是否已安装
+            // 检查 mermaid-cli 是否已安装（同样带超时，避免 --version 卡住）
+            // 超时给 25 秒：实测 mmdc --version 本身就要 5.3 秒（要拉起 Node 和 Chromium 做自检），
+            // 机器负载高时会更久，阈值压太紧会把「可用」误判成「不可用」并触发降级。
             String command = resolveCliCommand();
-            String checkCmd = command + " --version";
-            String version = RuntimeUtil.execForStr(checkCmd);
-            log.info("Mermaid CLI 版本: {}", version);
-            return version != null && !version.isEmpty();
+            String version = execWithTimeout(command + " --version", 25_000L);
+            log.info("Mermaid CLI 版本: {}", version.trim());
+            return version != null && !version.isBlank();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("Mermaid CLI 检测被中断");
+            return false;
         } catch (Exception e) {
             log.warn("Mermaid CLI 不可用: {}", e.getMessage());
             return false;
