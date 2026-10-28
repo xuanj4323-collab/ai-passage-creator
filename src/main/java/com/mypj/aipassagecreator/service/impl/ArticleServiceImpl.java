@@ -258,18 +258,14 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         // 校验权限
         checkArticlePermission(article, loginUser);
 
-        // 校验当前阶段（必须是 TITLE_SELECTING）
-        ArticlePhaseEnum currentPhase = ArticlePhaseEnum.getByValue(article.getPhase());
-        ThrowUtils.throwIf(currentPhase != ArticlePhaseEnum.TITLE_SELECTING,
-                ErrorCode.OPERATION_ERROR, "当前阶段不允许此操作");
+        // 阶段校验与写入放在同一条条件 UPDATE 里完成。
+        // 早先是「先查 phase 再 updateById」，存在几毫秒的 read-modify-write 窗口：
+        // 并发两次确认（双击、前端重试、两个标签页）会都通过校验，各自提交一次阶段2任务，
+        // LLM 被调用两次，且后完成的那次会覆盖用户随后编辑的大纲。
+        int affected = mapper.confirmTitleIfSelecting(taskId, mainTitle, subTitle, userDescription);
+        ThrowUtils.throwIf(affected == 0,
+                ErrorCode.OPERATION_ERROR, "当前阶段不允许此操作，请刷新页面查看最新状态");
 
-        // 保存用户选择的标题和补充描述
-        article.setMainTitle(mainTitle);
-        article.setSubTitle(subTitle);
-        article.setUserDescription(userDescription);
-        article.setPhase(ArticlePhaseEnum.OUTLINE_GENERATING.getValue());
-
-        this.updateById(article);
         log.info("用户确认标题, taskId={}, mainTitle={}", taskId, mainTitle);
     }
 
@@ -281,16 +277,12 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         // 校验权限
         checkArticlePermission(article, loginUser);
 
-        // 校验当前阶段（必须是 OUTLINE_EDITING）
-        ArticlePhaseEnum currentPhase = ArticlePhaseEnum.getByValue(article.getPhase());
-        ThrowUtils.throwIf(currentPhase != ArticlePhaseEnum.OUTLINE_EDITING,
-                ErrorCode.OPERATION_ERROR, "当前阶段不允许此操作");
+        // 同 confirmTitle：条件更新保证「校验 + 写入」的原子性，
+        // 避免并发确认把阶段3（最昂贵的一步）提交两次。
+        int affected = mapper.confirmOutlineIfEditing(taskId, GsonUtils.toJson(outline));
+        ThrowUtils.throwIf(affected == 0,
+                ErrorCode.OPERATION_ERROR, "当前阶段不允许此操作，请刷新页面查看最新状态");
 
-        // 保存用户编辑后的大纲
-        article.setOutline(GsonUtils.toJson(outline));
-        article.setPhase(ArticlePhaseEnum.CONTENT_GENERATING.getValue());
-
-        this.updateById(article);
         log.info("用户确认大纲, taskId={}, sectionsCount={}", taskId, outline.size());
     }
 

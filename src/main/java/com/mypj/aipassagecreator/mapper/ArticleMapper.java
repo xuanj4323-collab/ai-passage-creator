@@ -59,6 +59,47 @@ public interface ArticleMapper extends BaseMapper<Article> {
                             @Param("toPhase") String toPhase);
 
     /**
+     * 条件确认标题：仅当任务处于 TITLE_SELECTING 阶段时写入标题并推进到 OUTLINE_GENERATING。
+     * <p>
+     * 为什么不能写成「先 getByTaskId 校验 phase，再 updateById」：
+     * 那是典型的 read-modify-write，中间有几毫秒窗口。用户双击、前端重试、两个标签页
+     * 同时操作时，两个请求都会读到 TITLE_SELECTING 并通过校验，各自提交一次阶段2任务——
+     * LLM 被调用两次、费用翻倍；更糟的是后完成的那次会用 updateById 覆盖整行，
+     * 把用户后来编辑的大纲冲掉。
+     * <p>
+     * 把阶段校验写进 WHERE 之后，MySQL 会对该行加行锁，两个请求排队执行：
+     * 第一个把 phase 改走并提交，第二个的 WHERE 不再匹配，affectedRows = 0。
+     *
+     * @param taskId          任务ID
+     * @param mainTitle       用户选定的主标题
+     * @param subTitle        用户选定的副标题
+     * @param userDescription 用户补充描述（可为 null）
+     * @return 受影响行数：1 表示本次确认生效，0 表示阶段不匹配（重复提交或已被处理）
+     */
+    @Update("UPDATE article SET mainTitle = #{mainTitle}, subTitle = #{subTitle}, " +
+            "userDescription = #{userDescription}, phase = 'OUTLINE_GENERATING' " +
+            "WHERE taskId = #{taskId} AND phase = 'TITLE_SELECTING' AND isDelete = 0")
+    int confirmTitleIfSelecting(@Param("taskId") String taskId,
+                                @Param("mainTitle") String mainTitle,
+                                @Param("subTitle") String subTitle,
+                                @Param("userDescription") String userDescription);
+
+    /**
+     * 条件确认大纲：仅当任务处于 OUTLINE_EDITING 阶段时写入大纲并推进到 CONTENT_GENERATING。
+     * <p>
+     * 与 confirmTitleIfSelecting 同理：避免并发确认导致阶段3任务被提交两次
+     * （正文与配图是整个流程里最贵的一步）。
+     *
+     * @param taskId  任务ID
+     * @param outline 用户确认后的大纲（JSON 字符串）
+     * @return 受影响行数：1 表示本次确认生效，0 表示阶段不匹配
+     */
+    @Update("UPDATE article SET outline = #{outline}, phase = 'CONTENT_GENERATING' " +
+            "WHERE taskId = #{taskId} AND phase = 'OUTLINE_EDITING' AND isDelete = 0")
+    int confirmOutlineIfEditing(@Param("taskId") String taskId,
+                                @Param("outline") String outline);
+
+    /**
      * 统计指定时间点之后有创作行为的去重用户数（活跃用户）。
      * <p>
      * 用 SQL 聚合而非「查全部文章再 stream().distinct()」：后者会随数据量线性吃内存。
