@@ -1,23 +1,78 @@
 # AI Passage Creator
 
-> 一套以 **AI 智能体协作 + 多模态内容生成** 为核心的 AI 图文创作平台。
-> 基于 Spring Boot 3 + Spring AI Alibaba + Vue 3 开发的个人学习项目。
+> 一个「人机协作」的 AI 图文创作平台：输入选题，三个 AI 智能体依次产出标题方案、文章大纲、正文与配图，
+> 全过程通过 SSE 实时推送，并在关键节点让人介入决策。
 
-⚠️ **项目状态：开发中（脚手架阶段）**。当前已完成工程骨架、统一响应与异常体系、用户模块与注解式权限校验；
-AI 图文生成相关的核心业务尚未开始编码，具体进度见下方[开发进度](#开发进度)。
+基于 Spring Boot 3 + Spring AI Alibaba + Vue 3 的个人技术实践项目。
+
+**技术栈**：Spring Boot 3.5 · Java 21 · Spring AI Alibaba · MyBatis-Flex · MySQL · Redis · Vue 3 · TypeScript
 
 ---
 
 ## 目录
 
+- [核心功能](#核心功能)
 - [技术栈](#技术栈)
-- [功能特性](#功能特性)
-- [开发进度](#开发进度)
+- [系统架构](#系统架构)
 - [快速开始](#快速开始)
-- [项目结构](#项目结构)
+- [配置说明](#配置说明)
 - [接口一览](#接口一览)
-- [设计约定](#设计约定)
-- [开发路线](#开发路线)
+- [数据库](#数据库)
+- [项目结构](#项目结构)
+- [设计要点](#设计要点)
+- [已知限制](#已知限制)
+
+---
+
+## 核心功能
+
+### 三阶段人机协作创作
+
+不是「输入一句话等结果」，而是把创作拆成三个可干预的阶段：
+
+| 阶段 | AI 做什么 | 人做什么 |
+| --- | --- | --- |
+| 1. 标题 | 基于选题 + 风格生成 4 组标题方案 | 挑选其中一组，可补充额外描述 |
+| 2. 大纲 | 按选定标题生成分节大纲（流式可见） | 编辑章节、让 AI 按意见重写 |
+| 3. 正文 | 生成正文、分析配图需求、并行配图、图文合并 | 等待，中途可刷新查看进度 |
+
+### 六种配图方式
+
+用户可在创建任务时勾选，未勾选任何方式时自动降级到 Picsum 随机图。
+
+| 方式 | 说明 | 类型 |
+| --- | --- | --- |
+| `UNSPLASH` | Unsplash 图库检索 | 图库检索 |
+| `QWEN_IMAGE` | 通义万相 AI 生图 | 模型生成 |
+| `MERMAID` | Mermaid 代码转流程图/架构图 | 模型生成 + 本地渲染 |
+| `SVG_DIAGRAM` | AI 生成 SVG 概念示意图 | 模型生成 |
+| `ICONIFY` | Iconify 图标库检索 | 图库检索 |
+| `EMOJI_PACK` | 表情包图片检索 | 图库检索 |
+
+所有图片统一上传阿里云 OSS，失败时自动降级到原始 URL 或占位图。
+
+### 多智能体编排
+
+阶段 3 使用 Spring AI Alibaba 的 `StateGraph` 编排 4 个节点，配图环节内部并行：
+
+```mermaid
+graph LR
+    START --> A[content_generator]
+    A --> B[image_analyzer]
+    B --> C[parallel_image_generator]
+    C --> D[content_merger]
+    D --> END
+```
+
+- `parallel_image_generator` 内部用专用线程池并发处理多张配图，单张完成即推送 `IMAGE_COMPLETE`
+- 全部配图有 180 秒整体超时，超时后使用已完成的部分继续合并，不会卡死
+
+### 其他
+
+- **VIP 会员与 Stripe 支付**：Stripe Checkout 下单 + Webhook 回调开通，支持退款
+- **配额体系**：新用户 5 次创作额度，管理员与 VIP 不消耗；任务失败自动退还（幂等）
+- **智能体执行日志**：每个 Agent 的耗时、输入输出、成败落库，可在详情页查看
+- **数据统计**：文章数、完成率、平均耗时、活跃用户、配额消耗、VIP 数量
 
 ---
 
@@ -25,23 +80,23 @@ AI 图文生成相关的核心业务尚未开始编码，具体进度见下方[�
 
 ### 后端
 
-| 分类 | 技术 | 版本 | 说明 |
-| --- | --- | --- | --- |
-| 基础框架 | Spring Boot | 3.5.14 | Java 21 |
-| Web | spring-boot-starter-web | — | RESTful API |
-| ORM | MyBatis-Flex | 1.11.1 | `mybatis-flex-spring-boot3-starter` |
-| 连接池 | HikariCP | 由 Boot BOM 管理 | — |
-| 数据库 | MySQL | 8.x | `mysql-connector-j` |
-| 缓存 / 会话 | Redis | — | 会话存储，30 天过期 |
-| 会话管理 | Spring Session Data Redis | — | 分布式会话 |
-| 切面 | spring-boot-starter-aop | — | 权限校验 AOP |
-| 接口文档 | Knife4j + springdoc-openapi | 4.4.0 / 2.8.17 | springdoc 已统一抬版本 |
-| 工具库 | Hutool | 5.8.43 | — |
-| 热重载 | Spring Boot DevTools | — | 开发期使用 |
+| 分类 | 技术 | 版本 |
+| --- | --- | --- |
+| 基础框架 | Spring Boot | 3.5.14 |
+| 语言 | Java | 21 |
+| ORM | MyBatis-Flex | 1.11.1 |
+| 数据库 | MySQL | 8.x |
+| 缓存 / 会话 | Redis + Spring Session Data Redis | — |
+| AI 编排 | Spring AI Alibaba Agent Framework | 1.1.2.0 |
+| 大模型 | Spring AI DeepSeek Starter | 1.1.2 |
+| 生图 | DashScope SDK（通义万相） | 2.23.2 |
+| 对象存储 | 阿里云 OSS SDK v2 | 0.6.0 |
+| 支付 | Stripe Java SDK | 31.2.0 |
+| 接口文档 | Knife4j + springdoc-openapi | 4.4.0 / 2.8.17 |
 
-> **关于 springdoc 版本**：knife4j 4.4.0 传递进来的 springdoc 是 2.3.0，它在 Spring Framework 6.2（Boot 3.4+）
-> 上生成文档时会抛 `NoSuchMethodError`（`ControllerAdviceBean(Object)` 构造器已被移除）。
-> 因此 `pom.xml` 的 `dependencyManagement` 中把三个 springdoc 构件统一抬到 **2.8.17**。
+> **springdoc 版本说明**：knife4j 4.4.0 传递进来的 springdoc 是 2.3.0，它在 Spring Framework 6.2（Boot 3.4+）上
+> 生成文档会抛 `NoSuchMethodError`（`ControllerAdviceBean(Object)` 构造器已移除）。
+> 因此 `pom.xml` 的 `dependencyManagement` 把三个 springdoc 构件统一抬到 **2.8.17**。
 
 ### 前端
 
@@ -54,129 +109,156 @@ AI 图文生成相关的核心业务尚未开始编码，具体进度见下方[�
 | 状态管理 | Pinia | 4.0 |
 | 路由 | Vue Router | 4.6 |
 | HTTP | Axios | 1.20 |
+| Markdown 渲染 | marked + DOMPurify | — |
 | 接口代码生成 | @umijs/openapi | 1.14 |
 
----
+### 基础设施
 
-## 功能特性
-
-### 已实现
-
-- **统一响应体系**：`BaseResponse<T>`（`code` / `data` / `message`）+ `ErrorCode` 枚举 + 全局异常处理
-- **用户模块**：注册、登录、注销、获取当前登录用户
-- **数据脱敏**：出入参使用 DTO / VO 隔离实体，`LoginUserVO`、`UserVO` 均不含密码字段
-- **注解式权限校验**：`@AuthCheck(mustRole = "admin")` + AOP 环绕拦截
-- **管理员接口**：用户增删改查、分页查询
-- **逻辑删除**：MyBatis-Flex `@Column(isLogicDelete = true)`
-- **前端权限路由**：路由守卫拦截 `/admin/**`，未登录 / 非管理员自动跳转登录页
-- **接口代码自动生成**：后端 OpenAPI 文档 → 前端 TypeScript 调用代码
-
-### 规划中
-
-- AI 图文生成（对接 Spring AI Alibaba）
-- 文章 / 图片素材管理
-- 生成历史与结果收藏
-- 用户额度与积分体系
-- 流式输出（SSE）
+| 组件 | 用途 |
+| --- | --- |
+| Nginx | 静态文件托管 + `/api` 反向代理（SSE 需 `proxy_buffering off`） |
+| Docker Compose | MySQL + Redis + 后端 + Nginx 一键编排 |
 
 ---
 
-## 开发进度
+## 系统架构
 
-| 模块 | 状态 | 说明 |
-| --- | --- | --- |
-| 工程骨架 | ✅ 已完成 | Maven 多环境配置、跨域、热重载 |
-| 统一响应与异常 | ✅ 已完成 | BaseResponse / ErrorCode / GlobalExceptionHandler |
-| 用户模块 | ✅ 已完成 | 注册、登录、注销、查询、脱敏 |
-| 权限校验 | ✅ 已完成 | @AuthCheck + AuthInterceptor |
-| 前端脚手架 | ✅ 已完成 | 布局、路由、状态管理、请求封装 |
-| 数据库脚本 | ✅ 已完成 | `sql/create_table.sql` |
-| **AI 图文生成** | ⬜ 未开始 | 核心业务 |
-| 文章管理 | ⬜ 未开始 | — |
-| 单元测试 | ⚠️ 待补充 | 目前仅上下文启动测试 |
+### 创作主流程
+
+```mermaid
+sequenceDiagram
+    participant U as 浏览器
+    participant N as Nginx
+    participant A as 后端
+    participant AI as 智能体
+    participant DB as MySQL
+
+    U->>A: POST /article/create（选题 + 风格 + 配图方式）
+    A->>DB: 创建任务（PENDING）+ 扣配额
+    A-->>U: 返回 taskId
+    U->>A: GET /article/progress/{taskId}（SSE 建连）
+    A->>AI: 阶段1 生成标题方案
+    AI-->>U: TITLES_GENERATED（4 组方案）
+    Note over U: 用户挑选标题、可填补充描述
+    U->>A: POST /article/confirm-title
+    A->>AI: 阶段2 生成大纲
+    AI-->>U: AGENT2_STREAMING × N（逐字流式）
+    AI-->>U: OUTLINE_GENERATED
+    Note over U: 用户编辑大纲、可让 AI 重写
+    U->>A: POST /article/confirm-outline
+    A->>AI: 阶段3 正文 + 配图分析 + 并行配图 + 合并
+    AI-->>U: AGENT3_STREAMING / IMAGE_COMPLETE / MERGE_COMPLETE
+    AI-->>U: ALL_COMPLETE
+    A->>DB: 保存正文、配图、状态置 COMPLETED
+```
+
+**为什么拆成三张图而不是一张**：`StateGraph` 一旦开始执行就会跑到底，无法在中途挂起等待人工输入。
+三阶段之间存在用户思考时间（可能几分钟甚至跨天），因此每个阶段独立建图、独立执行，
+靠数据库里的 `phase` 字段衔接。
+
+### 部署拓扑
+
+```mermaid
+graph LR
+    B[浏览器] --> N[Nginx :80]
+    N -->|location /| S[前端静态文件 dist]
+    N -->|location /api/| J[Spring Boot :8567/api]
+    J --> M[(MySQL)]
+    J --> R[(Redis 会话)]
+    J --> AI[DeepSeek / 通义万相]
+    J --> OSS[阿里云 OSS]
+    STR[Stripe] -.webhook 回调.-> N
+```
+
+前端与接口同源（都由 Nginx 提供），因此会话 Cookie `PASSAGE_SESSION` 可以正常携带，不依赖跨域配置。
 
 ---
 
 ## 快速开始
 
-### 环境要求
+### 方式一：Docker Compose（推荐）
 
-| 依赖 | 版本要求 |
+```bash
+# 1. 生成 .env（从环境变量读取密钥，Windows）
+pwsh -File docker/gen-env.ps1
+
+# 2. 构建并启动
+docker compose up -d --build
+
+# 3. 查看状态
+docker compose ps
+```
+
+访问 <http://localhost:8080>。
+
+| 服务 | 宿主机端口 | 说明 |
+| --- | --- | --- |
+| nginx | 8080 | 前端入口 |
+| backend | 8568 | 直连调试用 |
+| mysql | 3307 | 避开宿主机可能占用的 3306 |
+| redis | 6380 | 避开宿主机可能占用的 6379 |
+
+数据库首次启动会自动建表并写入测试账号。详细说明见 [docker/README.md](docker/README.md)。
+
+### 方式二：本地开发
+
+**环境要求**
+
+| 依赖 | 版本 |
 | --- | --- |
 | JDK | 21+ |
 | Maven | 3.8+（或使用项目内置 `mvnw`） |
 | MySQL | 8.x |
 | Redis | 6.x+ |
 | Node.js | ^20.19.0 或 >=22.12.0 |
-| npm | 10+ |
 
-### 1. 克隆项目
-
-```bash
-git clone https://github.com/xuanj4323-collab/ai-passage-creator.git
-cd ai-passage-creator
-```
-
-### 2. 初始化数据库
+**1. 初始化数据库**
 
 ```bash
 mysql -u root -p < sql/create_table.sql
 ```
 
-脚本会创建 `ai_passage_creator` 库、`user` 表，并插入 3 个测试账号。
+> ⚠️ 仓库里的 `sql/` 脚本是历史演进记录，**不能直接串行执行**：
+> `create_table.sql` 是最初版本（`article` 表缺 `phase`、`style`、`titleOptions` 等 5 个字段），
+> 但 `user` 表却已是最新（含 `quota`、`vipTime`）；而 `update_quota.sql`、`add_vip_payment.sql`
+> 又会对已存在的列重复 `ADD COLUMN`，导致初始化中断。
+> 完整且一致的结构见 `docker/mysql-init/01-schema.sql`（从实际运行库导出）。
 
-### 3. 配置后端
+**2. 配置环境变量**
 
-数据库密码**没有硬编码在配置文件里**，通过环境变量注入。查看 `src/main/resources/application.yml`：
-
-```yaml
-spring:
-  datasource:
-    url: jdbc:mysql://localhost:3306/ai_passage_creator
-    username: root
-    password: ${Mysql_Password}
-  data:
-    redis:
-      host: localhost
-      port: 6379
-      database: 0
-```
-
-**启动前必须设置环境变量 `Mysql_Password`**，否则占位符解析失败会启动报错。
-
-PowerShell：
+后端不把密钥写进仓库，全部通过环境变量注入：
 
 ```powershell
+# PowerShell
 $env:Mysql_Password="你的数据库密码"
+$env:DS_API_KEY="DeepSeek API Key"
 ```
 
-Bash：
-
 ```bash
+# Bash
 export Mysql_Password="你的数据库密码"
+export DS_API_KEY="DeepSeek API Key"
 ```
 
-> IDEA 用户也可以在「Run/Debug Configurations → Environment variables」中配置。
+IDEA 用户可在「Run/Debug Configurations → Environment variables」中配置。
 
-同时请确保 **MySQL 与 Redis 服务已启动**。
-
-### 4. 启动后端
+**3. 启动后端**
 
 ```bash
-# 方式一：Maven Wrapper（推荐，无需本地安装 Maven）
-./mvnw spring-boot:run        # Windows: mvnw.cmd spring-boot:run
-
-# 方式二：打包后运行
+./mvnw spring-boot:run
+# 或打包后运行
 ./mvnw clean package -DskipTests
 java -jar target/ai-passage-creator-0.0.1-SNAPSHOT.jar
 ```
 
-- 服务端口：**8567**
-- 接口前缀：**/api**
+- 端口 **8567**，接口前缀 **`/api`**
+- 接口文档：<http://localhost:8567/api/doc.html>
 - 健康检查：<http://localhost:8567/api/health/>
-- 接口文档（Knife4j）：<http://localhost:8567/api/doc.html>
 
-### 5. 启动前端
+生产模式用 `--spring.profiles.active=prod`，会加载 `application-prod.yml`
+（相对日志路径、关闭 SQL 打印、Linux 下用 `mmdc`）。
+
+**4. 启动前端**
 
 ```bash
 cd frontend/ai-passage-creator
@@ -184,12 +266,12 @@ npm install
 npm run dev
 ```
 
-访问 <http://localhost:5173>（Vite 默认端口）。
+访问 <http://localhost:5173>。
 
-> 前端 Axios 的 `baseURL` 硬编码为 `http://localhost:8567/api`，而后端已通过 `CorsConfig` 放行跨域，
-> 因此前端无需配置代理即可直接请求后端。
+前端 `baseURL` 为相对路径 `/api`，`vite.config.ts` 中已为 **dev（5173）** 和 **preview（4173）** 都配置了
+到 `127.0.0.1:8567` 的代理，因此无需依赖后端 CORS。
 
-### 6. 测试账号
+### 测试账号
 
 | 账号 | 密码 | 角色 |
 | --- | --- | --- |
@@ -199,85 +281,102 @@ npm run dev
 
 ---
 
-## 项目结构
+## 配置说明
 
-```
-ai-passage-creator/
-├── pom.xml                          # Maven 配置与依赖版本仲裁
-├── mvnw / mvnw.cmd                  # Maven Wrapper
-├── sql/
-│   └── create_table.sql             # 建库、建表、初始化数据
-├── src/
-│   ├── main/
-│   │   ├── java/com/mypj/aipassagecreator/
-│   │   │   ├── AiPassageCreatorApplication.java   # 启动类
-│   │   │   ├── annotation/          # 自定义注解（AuthCheck）
-│   │   │   ├── aop/                 # 切面（AuthInterceptor 权限校验）
-│   │   │   ├── common/              # 通用返回、分页、请求基类
-│   │   │   ├── config/              # 配置类（CorsConfig）
-│   │   │   ├── constant/            # 常量（UserConstant）
-│   │   │   ├── controller/          # 控制层
-│   │   │   ├── exception/           # 错误码、业务异常、全局异常处理
-│   │   │   ├── mapper/              # MyBatis-Flex Mapper
-│   │   │   ├── model/
-│   │   │   │   ├── dto/             # 入参对象
-│   │   │   │   ├── entity/          # 数据库实体
-│   │   │   │   ├── enums/           # 枚举
-│   │   │   │   └── vo/              # 出参对象（脱敏视图）
-│   │   │   └── service/             # 业务接口与实现
-│   │   └── resources/
-│   │       └── application.yml      # 应用配置
-│   └── test/java/                   # 测试代码
-└── frontend/
-    └── ai-passage-creator/
-        ├── openapi2ts.config.ts     # 接口代码生成配置
-        ├── vite.config.ts
-        └── src/
-            ├── api/                 # 自动生成的接口调用代码
-            ├── components/          # 全局组件（Header / Footer）
-            ├── constants/           # 前端常量
-            ├── layouts/             # 布局组件
-            ├── pages/               # 页面
-            ├── router/              # 路由配置
-            ├── stores/              # Pinia 状态管理
-            ├── access.ts            # 全局路由守卫与权限校验
-            ├── request.ts           # Axios 实例与响应拦截器
-            └── main.ts              # 入口
-```
+### 环境变量
+
+| 变量 | 必需 | 用途 |
+| --- | --- | --- |
+| `Mysql_Password` | ✅ | MySQL 密码 |
+| `DS_API_KEY` | ✅ | DeepSeek 接口密钥 |
+| `Unsplash_Access_Key` | 可选 | Unsplash 图库检索 |
+| `ALY_API_KEY` | 可选 | 通义万相生图 |
+| `OSS_ACCESS_KEY_ID` / `OSS_ACCESS_KEY_SECRET` | 可选 | 图片上传 OSS，未配置时用原始链接 |
+| `STRIPE_API_KEY` | 可选 | VIP 支付 |
+| `STRIPE_WEBHOOK_SECRET` | 可选 | Webhook 验签 |
+| `APP_BASE_URL` | 可选 | 支付完成后跳回的前端地址，默认 `http://localhost:5173` |
+
+> 标「可选」的能力在缺少配置时不会导致启动失败，只会让对应功能不可用或走降级路径。
+
+### 配置文件
+
+| 文件 | 说明 |
+| --- | --- |
+| `application.yml` | 主配置，公共项与密钥占位符 |
+| `application-dev.yml` | 开发覆盖项（SQL 日志、本地日志路径、Stripe 测试密钥），**已被 .gitignore 忽略** |
+| `application-prod.yml` | 生产覆盖项（相对日志路径、关闭 SQL 打印、`mmdc` 命令） |
 
 ---
 
 ## 接口一览
 
-统一前缀：`/api`　｜　统一响应体：`{ "code": 0, "data": ..., "message": "ok" }`
+统一前缀 `/api`，统一响应体 `{ "code": 0, "data": ..., "message": "ok" }`。
 
-### 健康检查
-
-| 方法 | 路径 | 说明 | 权限 |
-| --- | --- | --- | --- |
-| GET | `/health/` | 服务健康检查 | 公开 |
-
-### 用户模块
+### 文章创作
 
 | 方法 | 路径 | 说明 | 权限 |
 | --- | --- | --- | --- |
-| POST | `/user/register` | 用户注册 | 公开 |
-| POST | `/user/login` | 用户登录 | 公开 |
-| GET | `/user/get/login` | 获取当前登录用户（含剩余额度） | 登录 |
-| POST | `/user/logout` | 用户注销 | 登录 |
-| POST | `/user/update/my` | 修改自己的昵称 / 头像 / 简介 | 登录 |
-| POST | `/user/update/password` | 修改自己的密码 | 登录 |
-| POST | `/user/avatar` | 上传头像（multipart，≤ 2MB，存 OSS） | 登录 |
+| POST | `/article/create` | 创建任务（选题 + 风格 + 配图方式） | 登录 |
+| GET | `/article/progress/{taskId}` | SSE 进度流 | 登录 |
+| POST | `/article/confirm-title` | 确认标题并触发阶段 2 | 登录 |
+| POST | `/article/confirm-outline` | 确认大纲并触发阶段 3 | 登录 |
+| POST | `/article/ai-modify-outline` | 让 AI 按意见重写大纲 | 登录 |
+| GET | `/article/{taskId}` | 文章详情 | 登录 |
+| POST | `/article/list` | 我的文章分页 | 登录 |
+| POST | `/article/delete` | 删除文章 | 登录 |
+| GET | `/article/execution-logs/{taskId}` | 智能体执行日志 | 登录 |
+
+### 用户
+
+| 方法 | 路径 | 说明 | 权限 |
+| --- | --- | --- | --- |
+| POST | `/user/register` | 注册 | 公开 |
+| POST | `/user/login` | 登录 | 公开 |
+| GET | `/user/get/login` | 当前登录用户（含配额） | 登录 |
+| POST | `/user/logout` | 注销 | 登录 |
+| POST | `/user/update/my` | 修改自己的资料 | 登录 |
+| POST | `/user/update/password` | 修改密码 | 登录 |
+| POST | `/user/avatar` | 上传头像（≤2MB） | 登录 |
 | POST | `/user/add` | 创建用户 | 管理员 |
-| GET | `/user/get` | 根据 id 获取用户（实体） | 管理员 |
-| GET | `/user/get/vo` | 根据 id 获取用户（脱敏） | 管理员 |
-| POST | `/user/delete` | 删除用户 | 管理员 |
+| GET | `/user/get` | 按 id 查询（实体） | 管理员 |
+| GET | `/user/get/vo` | 按 id 查询（脱敏） | 管理员 |
 | POST | `/user/update` | 更新用户 | 管理员 |
-| POST | `/user/list/page/vo` | 分页查询用户（脱敏） | 管理员 |
+| POST | `/user/delete` | 删除用户 | 管理员 |
+| POST | `/user/list/page/vo` | 用户分页（脱敏） | 管理员 |
+
+### 支付与统计
+
+| 方法 | 路径 | 说明 | 权限 |
+| --- | --- | --- | --- |
+| POST | `/payment/create-vip-session` | 创建 Stripe Checkout 会话 | 登录 |
+| POST | `/payment/refund` | 退款 | VIP |
+| GET | `/payment/records` | 支付记录 | 登录 |
+| POST | `/webhook/stripe` | Stripe 回调（验签） | 公开 |
+| GET | `/statistics/overview` | 平台数据概览 | 管理员 |
+| GET | `/health/` | 健康检查 | 公开 |
+
+### SSE 消息类型
+
+| 类型 | 含义 |
+| --- | --- |
+| `AGENT1_COMPLETE` / `TITLES_GENERATED` | 标题方案生成完成 |
+| `AGENT2_STREAMING` | 大纲逐字流式输出 |
+| `AGENT2_COMPLETE` / `OUTLINE_GENERATED` | 大纲生成完成 |
+| `AGENT3_STREAMING` | 正文逐字流式输出 |
+| `AGENT3_COMPLETE` | 正文生成完成 |
+| `AGENT4_COMPLETE` | 配图需求分析完成 |
+| `IMAGE_COMPLETE` | 单张配图完成 |
+| `AGENT5_COMPLETE` | 全部配图完成 |
+| `MERGE_COMPLETE` | 图文合并完成 |
+| `ALL_COMPLETE` | 全流程结束 |
+| `ERROR` | 失败（含错误信息） |
+
+> 服务端发完终态消息**不会主动关闭连接**——服务端关闭会被浏览器 `EventSource` 判定为异常断开并触发
+> `onerror`。正确做法是客户端识别终态消息后自行 `close()`。
 
 ### 前端接口代码生成
 
-后端启动后执行，即可从 OpenAPI 文档重新生成前端调用代码：
+后端启动后：
 
 ```bash
 cd frontend/ai-passage-creator
@@ -286,73 +385,162 @@ npm run openapi2ts
 
 ---
 
-## 设计约定
+## 数据库
 
-### 统一响应与错误码
+四张表：
 
-所有接口返回 `BaseResponse`，`code = 0` 表示成功。错误码定义见 `ErrorCode`：
-
-| 错误码 | 含义 |
+| 表 | 说明 |
 | --- | --- |
-| 0 | 成功 |
-| 40000 | 请求参数错误 |
-| 40100 | 未登录 |
-| 40101 | 无权限 |
-| 40300 | 禁止访问 |
-| 40400 | 请求数据不存在 |
-| 42900 | 请求过于频繁 |
-| 50000 | 系统内部异常 |
-| 50001 | 操作失败 |
+| `user` | 用户，含角色、剩余配额、VIP 到期时间 |
+| `article` | 文章任务，含阶段 `phase`、状态 `status`、标题方案、大纲、正文、配图 |
+| `agent_log` | 智能体执行日志（耗时、输入输出、成败） |
+| `payment_record` | Stripe 支付记录 |
 
-### 权限校验
+**文章状态机**
 
-在 Controller 方法上标注注解即可完成角色校验，无需手写 `if` 判断：
+```
+PENDING → PROCESSING → COMPLETED
+                     ↘ FAILED（自动退还配额）
+```
+
+**文章阶段**
+
+```
+PENDING → TITLE_GENERATING → TITLE_SELECTING
+       → OUTLINE_GENERATING → OUTLINE_EDITING
+       → CONTENT_GENERATING
+```
+
+---
+
+## 项目结构
+
+```
+ai-passage-creator/
+├── pom.xml
+├── docker-compose.yml                 # 四服务编排
+├── .dockerignore
+├── docker/
+│   ├── Dockerfile.backend             # 多阶段构建（maven → JRE）
+│   ├── Dockerfile.frontend            # 多阶段构建（node → nginx）
+│   ├── nginx.conf                     # 含 SSE 关键配置
+│   ├── maven-settings.xml             # 构建期阿里云镜像
+│   ├── gen-env.ps1                    # 生成 .env
+│   ├── mysql-init/                    # 01-schema.sql / 02-seed.sql
+│   └── README.md
+├── sql/                               # 历史建表与增量脚本
+├── src/main/java/com/mypj/aipassagecreator/
+│   ├── agent/                         # 多智能体编排
+│   │   ├── ArticleAgentOrchestrator.java   # 三张 StateGraph
+│   │   ├── agents/                    # 5 个节点实现
+│   │   ├── parallel/ParallelImageGenerator.java
+│   │   ├── tools/ImageGenerationTool.java
+│   │   └── context/StreamHandlerContext.java
+│   ├── annotation/                    # @AuthCheck / @AgentExecution
+│   ├── aop/                           # 权限校验、执行日志切面
+│   ├── common/                        # 统一响应、分页、错误码
+│   ├── config/                        # 11 个配置类（含线程池、CORS、各图片服务）
+│   ├── constant/
+│   ├── controller/                    # 6 个控制器
+│   ├── exception/
+│   ├── manager/                       # SseEmitterManager、ArticleStreamBuffer
+│   ├── mapper/                        # MyBatis-Flex Mapper
+│   ├── model/{dto,entity,enums,vo}/
+│   ├── service/{,impl}/               # 业务层 + 6 个图片服务实现
+│   └── utils/
+└── frontend/ai-passage-creator/
+    ├── vite.config.ts                 # dev/preview 双代理
+    └── src/
+        ├── api/                       # OpenAPI 自动生成
+        ├── pages/
+        │   ├── article/               # 创作、列表、详情
+        │   ├── user/                  # 登录、注册、个人中心
+        │   ├── vip/                   # 会员中心
+        │   └── admin/                 # 用户管理、数据统计
+        ├── utils/sse.ts               # EventSource 封装
+        ├── utils/markdown.ts          # marked + DOMPurify
+        ├── request.ts                 # Axios（相对 baseURL）
+        └── router/
+```
+
+---
+
+## 设计要点
+
+### 1. 三阶段拆分与 SSE 快照
+
+阶段之间有用户的思考时间，SSE 连接可能早已断开。因此服务端在 `GET /article/progress/{taskId}`
+建连时会主动补发快照：
+
+- `TITLE_SELECTING` → 补发 `TITLES_GENERATED`
+- `OUTLINE_EDITING` → 补发 `OUTLINE_GENERATED`
+- `CONTENT_GENERATING` → 补发已生成的正文（`AGENT3_STREAMING`），见下条
+- 终态 → 补发终态消息
+
+前端只需处理一种消息格式，无需区分「实时」与「补发」。
+
+### 2. 阶段 3 刷新不丢内容
+
+阶段 3 要跑 40~80 秒，正文是逐字符推送且**生成期间不落库**（只在收尾整体保存）。
+用户中途刷新，新连接只能收到之后的片段。
+
+解决方式：`ArticleStreamBuffer` 在推送时同步累积一份正文（上限 3 万字符），
+建连时补发这份缓冲，前端按同一格式追加，前后自然拼接。任务进入终态后清理。
+
+> 当前是进程内内存实现，**仅适用单实例**。多实例部署需换成 Redis 共享。
+
+### 3. 配额扣减与退还的幂等
+
+配额通过条件 UPDATE 扣减，用 `affectedRows` 判断是否真正扣到：
+
+```sql
+UPDATE user SET quota = quota - 1 WHERE id = ? AND quota > 0
+```
+
+任务失败退还时同样是条件更新，只有「本次把任务从非终态推到 FAILED」才退款，
+避免重复退款。管理员与 VIP 在四条扣减路径上都直接跳过。
+
+### 4. 配图降级链
+
+```
+用户勾选的方式 → 服务可用性检查 → 生成/检索 → 上传 OSS → 失败则用原始 URL → 再失败用 Picsum 占位
+```
+
+`ImageServiceStrategy` 统一注册所有实现，按 `ImageMethodEnum` 分发，任一环节失败都不会中断整体流程。
+
+### 5. 线程池按任务性质隔离
+
+| 线程池 | 用途 | 拒绝策略 | 理由 |
+| --- | --- | --- | --- |
+| `articleExecutor` | 文章生成 | CallerRuns | 生成任务不能丢 |
+| `imageExecutor` | 并行配图（网络 IO） | CallerRuns | 宁可慢也不能丢 |
+| `logExecutor` | 执行日志写入 | Discard | 日志可丢，绝不阻塞主流程 |
+
+配图任务使用专用线程池而非 `ForkJoinPool.commonPool()`——后者是 CPU 密集型的全局共享池，
+IO 等待会拖垮应用中所有依赖它的并行操作。
+
+### 6. 注解式权限校验
 
 ```java
 @PostMapping("/delete")
 @AuthCheck(mustRole = UserConstant.ADMIN_ROLE)
-public BaseResponse<Boolean> deleteUser(@RequestBody DeleteRequest deleteRequest) {
-    // ...
-}
+public BaseResponse<Boolean> deleteUser(@RequestBody DeleteRequest req) { ... }
 ```
 
-`AuthInterceptor` 会从 Session 中取出登录用户并比对角色，不符则抛出 `NO_AUTH_ERROR`。
-
-### 会话与登录态
-
-- 登录成功后把用户对象写入 Session（键名 `user_login`，见 `UserConstant`）
-- Session 由 Redis 存储，**30 天**过期，应用重启不丢失登录态
-- 前端 Axios 配置 `withCredentials: true`，依赖 Cookie 维持会话
-- 响应码为 `40100` 时，前端响应拦截器自动跳转登录页并带上 `redirect` 参数
-
-### 密码存储
-
-- 加盐 MD5：`MD5(密码 + 固定盐值)`
-- ⚠️ **仅用于学习演示**。MD5 加固定盐无法抵御彩虹表与暴力破解，生产环境请改用 **BCrypt / Argon2** 等自适应哈希算法
+`AuthInterceptor` 从 Session 取登录用户并比对角色，支持三档：`admin`（严格）、`vip`（VIP 或管理员）、
+`user`/空（仅要求登录）。
 
 ---
 
-## 开发路线
+## 已知限制
 
-- [x] 工程骨架与统一响应体系
-- [x] 用户模块（注册 / 登录 / 注销 / 管理）
-- [x] 注解式权限校验
-- [x] 前端脚手架与权限路由
-- [ ] 引入 Spring AI Alibaba，接通大模型对话能力
-- [ ] 图文生成核心业务与 `article` 相关数据表
-- [ ] 生成结果流式输出（SSE）
-- [ ] 生成历史、素材库、收藏
-- [ ] 用户额度与积分体系
-- [ ] 补充单元测试与接口测试
-
----
-
-## 已知事项
-
-- 用户分页查询的排序字段目前直接拼接到 SQL 中，尚未做字段白名单校验，后续需加固
-- `application.yml` 中的 JDBC URL 未显式指定字符集与时区参数，如遇中文乱码或时区报错可追加
-  `?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai`
-- 单元测试目前仅有 Spring 上下文启动测试，待补充业务测试
+- **密码存储**：MD5 + 固定盐，仅用于学习演示，生产应改用 BCrypt / Argon2
+- **Mermaid 配图**依赖本机安装 `@mermaid-js/mermaid-cli`（含 Chromium，体积较大），
+  未安装时该方式会被判定不可用并降级
+- **`ArticleStreamBuffer` 单实例**：多实例部署时阶段 3 刷新快照会失效，需换 Redis
+- **用户分页排序字段**直接拼接进 SQL，尚未做字段白名单校验，有待加固
+- **后端无 healthcheck**：基础 JRE 镜像缺 curl/wget，Docker 启动后 Nginx 有约 7~10 秒窗口返回 502
+- **单元测试**目前仅有上下文启动测试，业务逻辑测试待补充
 
 ---
 
