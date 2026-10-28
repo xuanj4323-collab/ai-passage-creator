@@ -88,12 +88,16 @@ public interface ArticleService extends IService<Article> {
     boolean markFailedIfNotTerminal(String taskId, String errorMessage);
 
     /**
-     * 保存文章内容
+     * 保存文章内容（仅当任务仍处于 PROCESSING 时生效）
+     * <p>
+     * 返回 false 说明任务已被其他流程终结（例如被超时回收置为 FAILED），
+     * 调用方应跳过后续的状态推进与完成推送，避免留下「状态失败但内容齐全」的矛盾数据。
      *
      * @param taskId 任务ID
      * @param state  文章状态对象
+     * @return 是否写入成功
      */
-    void saveArticleContent(String taskId, ArticleState state);
+    boolean saveArticleContent(String taskId, ArticleState state);
 
     /**
      * 获取文章详情（带权限校验）

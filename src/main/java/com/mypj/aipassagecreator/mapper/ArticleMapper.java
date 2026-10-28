@@ -100,6 +100,31 @@ public interface ArticleMapper extends BaseMapper<Article> {
                                 @Param("outline") String outline);
 
     /**
+     * 条件保存正文与配图：仅当任务仍处于 PROCESSING 状态时才写入。
+     * <p>
+     * 存在的意义是防「超时回收」与「正常完成」打架：
+     * 阶段3要跑 40~80 秒，若引入了超时清理机制，任务可能在跑到第 4 分钟时被判失败并退款，
+     * 而它第 5 分钟才真正跑完。此时若无条件写入，数据库会留下
+     * 「status=FAILED，但 content/fullContent/images 齐全」的矛盾记录，
+     * 排查时无法判断到底成功还是失败。
+     * <p>
+     * 加上 status = 'PROCESSING' 之后，被回收的任务在收尾时 affectedRows = 0，
+     * 调用方据此放弃写入并跳过后续的完成推送，数据只保留 FAILED 一种事实。
+     * <p>
+     * 说明：这几列在阶段3收尾时都是首次写入（此前为空），因此直接覆盖是安全的，
+     * 不需要像 updateById 那样做 null 忽略。
+     *
+     * @param article 只填 taskId 与需要写入的字段，其余留空
+     * @return 受影响行数：1 表示写入成功，0 表示任务已不在处理中（被回收或已终态）
+     */
+    @Update("UPDATE article SET mainTitle = #{article.mainTitle}, subTitle = #{article.subTitle}, " +
+            "outline = #{article.outline}, content = #{article.content}, " +
+            "fullContent = #{article.fullContent}, coverImage = #{article.coverImage}, " +
+            "images = #{article.images}, completedTime = #{article.completedTime} " +
+            "WHERE taskId = #{article.taskId} AND status = 'PROCESSING' AND isDelete = 0")
+    int saveContentIfProcessing(@Param("article") Article article);
+
+    /**
      * 统计指定时间点之后有创作行为的去重用户数（活跃用户）。
      * <p>
      * 用 SQL 聚合而非「查全部文章再 stream().distinct()」：后者会随数据量线性吃内存。

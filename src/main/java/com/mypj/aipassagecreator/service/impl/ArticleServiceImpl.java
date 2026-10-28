@@ -134,14 +134,12 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
     }
 
     @Override
-    public void saveArticleContent(String taskId, ArticleState state) {
-        Article article = getByTaskId(taskId);
-
-        if (article == null) {
-            log.error("文章记录不存在, taskId={}", taskId);
-            return;
-        }
-
+    public boolean saveArticleContent(String taskId, ArticleState state) {
+        // 只构造需要写入的字段，不再「先读整行再 updateById 写回」。
+        // 后者会把读到的 status 一并带回库里，一旦此刻任务已被超时回收置成 FAILED，
+        // 就会留下「状态失败、内容齐全」的矛盾记录。
+        Article article = new Article();
+        article.setTaskId(taskId);
         article.setMainTitle(state.getTitle().getMainTitle());
         article.setSubTitle(state.getTitle().getSubTitle());
         article.setOutline(GsonUtils.toJson(state.getOutline().getSections()));
@@ -161,8 +159,19 @@ public class ArticleServiceImpl extends ServiceImpl<ArticleMapper, Article> impl
         article.setImages(GsonUtils.toJson(state.getImages()));
         article.setCompletedTime(LocalDateTime.now());
 
-        this.updateById(article);
+        // 条件写入：只有任务仍在 PROCESSING 时才落库
+        int affected = mapper.saveContentIfProcessing(article);
+        if (affected == 0) {
+            // 走到这里说明任务已被其他流程终结（典型是被超时回收置为 FAILED）。
+            // 此时宁可丢弃这次生成结果，也不能把内容写进一条「失败」的记录里。
+            Article current = getByTaskId(taskId);
+            log.warn("任务已不在处理中，放弃写入正文, taskId={}, 当前状态={}",
+                    taskId, current != null ? current.getStatus() : "记录不存在");
+            return false;
+        }
+
         log.info("文章保存成功, taskId={}", taskId);
+        return true;
     }
 
     @Override

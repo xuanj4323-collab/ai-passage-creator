@@ -253,11 +253,22 @@ public class ArticleAsyncService {
                 });
             }
 
-            // 保存完整文章到数据库
-            articleService.saveArticleContent(taskId, state);
+            // 保存完整文章到数据库（仅当任务仍处于 PROCESSING 时才会真正写入）
+            if (!articleService.saveArticleContent(taskId, state)) {
+                // 任务已被其他流程终结（典型是被超时回收置成 FAILED）。
+                // 此处必须直接返回：既不再推进状态，也不推 ALL_COMPLETE——
+                // 否则前端会先看到「完成」，刷新后又变成「失败」，用户无法理解发生了什么。
+                log.warn("任务已被终结，放弃完成流程, taskId={}", taskId);
+                return;
+            }
 
             // 更新状态为已完成
-            articleService.updateArticleStatus(taskId, ArticleStatusEnum.PROCESSING, ArticleStatusEnum.COMPLETED, null);
+            if (!articleService.updateArticleStatus(taskId, ArticleStatusEnum.PROCESSING,
+                    ArticleStatusEnum.COMPLETED, null)) {
+                // 极窄的窗口：正文刚写成功、状态就被别的流程改走。同样不推完成消息。
+                log.warn("状态推进到 COMPLETED 未生效，跳过完成推送, taskId={}", taskId);
+                return;
+            }
 
             // 推送完成消息
             sendSseMessage(taskId, SseMessageTypeEnum.ALL_COMPLETE, Map.of("taskId", taskId));
