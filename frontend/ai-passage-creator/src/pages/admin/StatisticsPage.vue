@@ -58,11 +58,11 @@
 
             <a-col :xs="24" :md="8">
               <a-card :bordered="false" class="metric-card">
-                <div class="metric-label">平均创作耗时</div>
+                <div class="metric-label">平均 AI 处理耗时</div>
                 <div class="metric-value">
                   {{ avgDurationText }}
                 </div>
-                <p class="metric-hint">单篇文章从开始到完成的平均耗时</p>
+                <p class="metric-hint">各智能体执行耗时之和，不含人工确认的等待时间</p>
               </a-card>
             </a-col>
 

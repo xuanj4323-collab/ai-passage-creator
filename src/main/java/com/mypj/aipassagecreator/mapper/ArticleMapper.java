@@ -138,14 +138,8 @@ public interface ArticleMapper extends BaseMapper<Article> {
     Long countDistinctUsersSince(@Param("start") LocalDateTime start);
 
     /**
-     * 已完成文章的平均生成耗时（毫秒）。
-     * <p>
-     * TIMESTAMPDIFF 以微秒为单位求差，AVG 后除以 1000 转成毫秒；
-     * 无数据时 AVG 返回 NULL，映射为 Java null，由调用方兜底。
-     *
-     * @return 平均耗时（毫秒），无数据时返回 null
+     * 注意：平均耗时查询已迁到 {@link AgentLogMapper#avgAiDurationMs()}。
+     * 原实现用 createTime → completedTime 计算，会把用户选标题、编辑大纲的停留时间算进去，
+     * 得到的不是系统生成耗时，已废弃。
      */
-    @Select("SELECT AVG(TIMESTAMPDIFF(MICROSECOND, createTime, completedTime)) / 1000 " +
-            "FROM article WHERE status = 'COMPLETED' AND completedTime IS NOT NULL AND isDelete = 0")
-    Double avgCompletedDurationMs();
 }

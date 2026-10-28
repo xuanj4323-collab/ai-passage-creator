@@ -2,6 +2,7 @@ package com.mypj.aipassagecreator.service.impl;
 
 import com.mybatisflex.core.query.QueryWrapper;
 import com.mypj.aipassagecreator.constant.UserConstant;
+import com.mypj.aipassagecreator.mapper.AgentLogMapper;
 import com.mypj.aipassagecreator.mapper.ArticleMapper;
 import com.mypj.aipassagecreator.mapper.UserMapper;
 import com.mypj.aipassagecreator.model.enums.ArticleStatusEnum;
@@ -34,6 +35,9 @@ public class StatisticsServiceImpl implements StatisticsService {
 
     @Resource
     private UserMapper userMapper;
+
+    @Resource
+    private AgentLogMapper agentLogMapper;
 
     @Resource
     private AgentLogService agentLogService;
@@ -135,14 +139,18 @@ public class StatisticsServiceImpl implements StatisticsService {
     }
 
     /**
-     * 计算平均耗时（从创建到完成的平均时间）
+     * 计算平均 AI 处理耗时（各智能体耗时之和的均值）
      * <p>
-     * 交给数据库聚合：原实现会把全部已完成文章拉到内存再求平均，
-     * 数据量增长后既慢又可能 OOM。
+     * 不用 article 的 createTime → completedTime：那段墙钟时间包含用户选标题、
+     * 编辑大纲的停留时间，同一个人改得慢一点数字就能翻几倍，衡量的是「用户走完全程多久」，
+     * 不是「系统生成多久」。改用 agent_log 里各节点的真实执行耗时，
+     * 口径清晰、可复现，也不会被人工操作干扰。
+     * <p>
+     * 聚合交给数据库，避免把全部明细拉到内存再算。
      */
     private Integer calculateAvgDuration() {
         try {
-            Double avgMs = articleMapper.avgCompletedDurationMs();
+            Double avgMs = agentLogMapper.avgAiDurationMs();
             return avgMs != null ? (int) Math.round(avgMs) : 0;
         } catch (Exception e) {
             log.warn("计算平均耗时失败", e);
