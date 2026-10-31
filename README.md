@@ -53,16 +53,24 @@
 
 ### 多智能体编排
 
-阶段 3 使用 Spring AI Alibaba 的 `StateGraph` 编排 4 个节点，配图环节内部并行：
+整个创作流程编译成**一张** `StateGraph`，在两个人工决策点前用 `interruptBefore` 暂停：
 
 ```mermaid
 graph LR
-    START --> A[content_generator]
-    A --> B[image_analyzer]
-    B --> C[parallel_image_generator]
-    C --> D[content_merger]
-    D --> END
+    START --> T[title_generator]
+    T -.中断点1.-> O[outline_generator]
+    O -.中断点2.-> C[content_generator]
+    C --> I[image_analyzer]
+    I --> P[parallel_image_generator]
+    P --> M[content_merger]
+    M --> END
 ```
+
+执行位置由 `MysqlSaver` 持久化到 MySQL（`graph_thread` / `graph_checkpoint` 两张表），
+`threadId` 即 `taskId`。因此用户在这两个位置停留多久、期间服务是否重启，
+都能用 `RunnableConfig.resume()` 从断点继续，已完成的节点不会重跑。
+
+任务进入终态时会释放并物理清理该任务的检查点，避免表持续膨胀。
 
 - `parallel_image_generator` 内部用专用线程池并发处理多张配图，单张完成即推送 `IMAGE_COMPLETE`
 - 全部配图有 180 秒整体超时，超时后使用已完成的部分继续合并，不会卡死
@@ -152,9 +160,13 @@ sequenceDiagram
     A->>DB: 保存正文、配图、状态置 COMPLETED
 ```
 
-**为什么拆成三张图而不是一张**：`StateGraph` 一旦开始执行就会跑到底，无法在中途挂起等待人工输入。
-三阶段之间存在用户思考时间（可能几分钟甚至跨天），因此每个阶段独立建图、独立执行，
-靠数据库里的 `phase` 字段衔接。
+**关于中断方式**：框架提供 Human-in-the-Loop 能力——节点可实现 `InterruptableAction`
+在运行时动态中断，也可用 `CompileConfig.interruptBefore` 声明静态中断点，配合
+`SaverConfig` 注册的检查点保存器持久化执行位置。本项目采用后者：两个中断点是固定的
+（选标题、改大纲），静态声明比动态判断更直观。
+
+图状态（执行到哪个节点）由 `MysqlSaver` 持久化；业务状态（`phase` / `status`）仍存在
+`article` 表里，因为列表页、SSE 快照、前端都依赖它，不能只留在框架的检查点里。
 
 ### 部署拓扑
 
@@ -431,7 +443,7 @@ ai-passage-creator/
 ├── sql/                               # 历史建表与增量脚本
 ├── src/main/java/com/mypj/aipassagecreator/
 │   ├── agent/                         # 多智能体编排
-│   │   ├── ArticleAgentOrchestrator.java   # 三张 StateGraph
+│   │   ├── ArticleAgentOrchestrator.java   # 单张 StateGraph（2 个中断点 + 检查点持久化）
 │   │   ├── agents/                    # 5 个节点实现
 │   │   ├── parallel/ParallelImageGenerator.java
 │   │   ├── tools/ImageGenerationTool.java

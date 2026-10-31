@@ -90,13 +90,13 @@ public class ArticleAsyncService {
             state.setTopic(topic);
             state.setStyle(style);
 
-            // 执行阶段1：生成标题方案
+            // 执行阶段1：生成标题方案（合并图首次执行，跑完停在「生成大纲」之前）
             if (!orchestratorEnabled) {
                 articleAgentService.executePhase1_GenerateTitles(state, message -> {
                     handleAgentMessage(taskId, message, state);
                 });
             } else {
-                articleAgentOrchestrator.executePhase1_GenerateTitles(state, message -> {
+                articleAgentOrchestrator.startGeneration(state, message -> {
                     handleAgentMessage(taskId, message, state);
                 });
             }
@@ -123,6 +123,8 @@ public class ArticleAsyncService {
             log.info("阶段1异步任务完成, taskId={}", taskId);
         } catch (Exception e) {
             log.error("阶段1异步任务失败, taskId={}", taskId, e);
+            // 任务到此终结，检查点不再需要，及时释放避免表持续增长
+            articleAgentOrchestrator.releaseCheckpoint(taskId);
             failedAndRefundQuota(taskId, loginUser, e);
         }
     }
@@ -157,13 +159,13 @@ public class ArticleAsyncService {
             title.setSubTitle(article.getSubTitle());
             state.setTitle(title);
 
-            // 执行阶段2：生成大纲
+            // 执行阶段2：生成大纲（从断点1恢复，跑完停在「生成正文」之前）
             if (!orchestratorEnabled) {
                 articleAgentService.executePhase2_GenerateOutline(state, message -> {
                     handleAgentMessage(taskId, message, state);
                 });
             } else {
-                articleAgentOrchestrator.executePhase2_GenerateOutline(state, message -> {
+                articleAgentOrchestrator.resumeWithTitle(state, message -> {
                     handleAgentMessage(taskId, message, state);
                 });
             }
@@ -190,6 +192,8 @@ public class ArticleAsyncService {
         } catch (Exception e) {
             log.error("阶段2异步任务失败, taskId={}", taskId, e);
 
+            // 任务到此终结，检查点不再需要
+            articleAgentOrchestrator.releaseCheckpoint(taskId);
             failedAndRefundQuota(taskId, loginUser, e);
         }
     }
@@ -242,13 +246,13 @@ public class ArticleAsyncService {
             outlineResult.setSections(outlineSections);
             state.setOutline(outlineResult);
 
-            // 执行阶段3：生成正文+配图
+            // 执行阶段3：生成正文+配图（从断点2恢复，一路跑到 END）
             if (!orchestratorEnabled) {
                 articleAgentService.executePhase3_GenerateContent(state, message -> {
                     handleAgentMessage(taskId, message, state);
                 });
             } else {
-                articleAgentOrchestrator.executePhase3_GenerateContent(state, message -> {
+                articleAgentOrchestrator.resumeWithOutline(state, message -> {
                     handleAgentMessage(taskId, message, state);
                 });
             }
@@ -280,9 +284,11 @@ public class ArticleAsyncService {
 
             failedAndRefundQuota(taskId, loginUser, e);
         } finally {
-            // 走到这里任务已是终态：成功时正文刚落库、失败时已标记 FAILED，
-            // 缓冲不再需要，及时释放避免长期占内存。
+            // 走到这里任务已是终态：成功时正文刚落库、失败时已标记 FAILED。
+            // 正文缓冲和图执行检查点都不再需要，一并释放：
+            // 前者避免长期占内存，后者避免 checkpoint 表无限增长。
             articleStreamBuffer.clear(taskId);
+            articleAgentOrchestrator.releaseCheckpoint(taskId);
         }
     }
 
